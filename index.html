@@ -62,8 +62,14 @@
     .task-prompt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
     .task-meta { white-space:nowrap; font-size:11px; color:var(--muted); } .task-content { padding:0 12px 10px; }
     .task-content p { white-space:pre-wrap; overflow-wrap:anywhere; } pre { white-space:pre-wrap; overflow-wrap:anywhere; font:12px/1.7 ui-monospace,monospace; }
-    .panel { position:fixed; z-index:5; bottom:0; left:50%; transform:translateX(-50%); width:min(100%,1000px); max-height:78dvh; overflow:auto; padding:12px 16px calc(12px + env(safe-area-inset-bottom)); background:var(--card); border:1px solid var(--line); border-radius:18px 18px 0 0; box-shadow:0 -8px 30px #0002; }
-    .panel[open] #request { animation:sheet .2s ease-out; }
+    .panel { margin-top:14px; padding:12px 14px; background:var(--card); border:1px solid var(--line); border-radius:14px; }
+    .request-head { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; margin-bottom:4px; }
+    .target-label { font-weight:700; color:var(--pick,var(--text)); }
+    #prompt { width:100%; min-height:84px; }
+    .request-foot { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; margin-top:6px; } .request-foot #send { margin-left:auto; }
+    .advanced { margin-top:6px; } .advanced summary { font-weight:400; font-size:13px; color:var(--muted); }
+    .agent-group { cursor:pointer; border-radius:10px; outline:2px solid transparent; transition:outline-color .15s; }
+    .agent-group:hover { outline-color:var(--line); } .agent-group.picked { outline-color:var(--pick,#3b82f6); background:#ffffff08; }
     .settings,.permissions,.chips { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; } .settings label { flex:1; min-width:95px; } .settings select { display:block; width:100%; }
     fieldset { border:0; padding:0; margin-top:10px; } legend { font-size:12px; }
     .permissions label { position:relative; border:1px solid var(--line); border-radius:20px; padding:3px 9px; font-size:12px; cursor:pointer; }
@@ -100,37 +106,45 @@
     <p id="message" role="status" aria-live="polite"></p>
     <section id="dashboard" hidden aria-label="稼働ダッシュボード">
       <div id="cards" class="cards"></div>
+      <section id="panel" class="panel" hidden aria-label="キャラクターに指示する">
+        <form id="request">
+          <div class="request-head">
+            <span id="target-label" class="target-label">宛先：どちらでも · Clawd</span>
+            <span class="muted">キャラをタップすると宛先が変わります</span>
+          </div>
+          <div class="chips" aria-label="領域">
+            <button type="button" data-domain="kyoka">kyoka</button><button type="button" data-domain="bunsho">bunsho</button>
+            <button type="button" data-domain="web-page">web-page</button><button type="button" data-domain="web-app">web-app</button>
+          </div>
+          <textarea id="prompt" maxlength="8000" required aria-label="依頼内容" placeholder="お願いしたいことを入力…（生徒の個人情報は書かない）"></textarea>
+          <div class="request-foot">
+            <span id="count" class="muted">0 / 8000字</span>
+            <span id="permission-summary" class="muted"></span>
+            <button id="send" class="primary" type="submit">送信（Ctrl+Enter）</button>
+          </div>
+          <p id="send-message" role="status"></p>
+          <details class="advanced">
+            <summary>詳細設定（宛先・モデル・許可する操作）</summary>
+            <div class="settings">
+              <label>宛先<select id="target"><option value="any">どちらでも</option><option value="home">自宅PC</option><option value="school">勤務先PC</option></select></label>
+              <label>エンジン<select id="engine"><option value="claude">Claude</option><option value="codex">Codex</option></select></label>
+              <label id="model-label">モデル<select id="model"><option value="auto">自動</option><option value="haiku">Haiku</option><option value="sonnet">Sonnet</option><option value="opus">Opus</option><option value="fable">Fable</option></select></label>
+            </div>
+            <fieldset><legend>この依頼で許可する操作</legend><div class="permissions">
+              <label><input type="checkbox" value="read" checked disabled>読み取り</label>
+              <label><input type="checkbox" value="edit" checked>ファイル編集</label>
+              <label><input type="checkbox" value="publish" checked>OneDrive保存</label>
+              <label><input type="checkbox" value="git">git commit・push</label>
+              <label><input type="checkbox" value="codex">Codexへ委任</label>
+              <label><input type="checkbox" value="web">Web検索</label>
+            </div></fieldset>
+          </details>
+        </form>
+      </section>
       <section aria-label="依頼一覧"><h2 style="margin-top:24px">依頼一覧</h2><div id="tasks"></div></section>
       <details class="timeline"><summary>直近のイベント</summary><ol id="events"></ol></details>
     </section>
   </main>
-  <details id="panel" class="panel" hidden>
-    <summary>キャラクターに指示する</summary>
-    <form id="request">
-      <p class="muted">生徒の個人情報は書かない</p>
-      <div class="chips" aria-label="領域">
-        <button type="button" data-domain="kyoka">kyoka</button><button type="button" data-domain="bunsho">bunsho</button>
-        <button type="button" data-domain="web-page">web-page</button><button type="button" data-domain="web-app">web-app</button>
-      </div>
-      <label for="prompt">依頼内容</label><textarea id="prompt" maxlength="8000" required placeholder="お願いしたいことを入力…"></textarea>
-      <div id="count" class="muted">0 / 8000字</div>
-      <div class="settings">
-        <label>宛先<select id="target"><option value="any">どちらでも</option><option value="home">自宅PC</option><option value="school">勤務先PC</option></select></label>
-        <label>エンジン<select id="engine"><option value="claude">Claude</option><option value="codex">Codex</option></select></label>
-        <label id="model-label">モデル<select id="model"><option value="auto">自動</option><option value="haiku">Haiku</option><option value="sonnet">Sonnet</option><option value="opus">Opus</option><option value="fable">Fable</option></select></label>
-      </div>
-      <fieldset><legend>この依頼で許可する操作</legend><div class="permissions">
-        <label><input type="checkbox" value="read" checked disabled>読み取り</label>
-        <label><input type="checkbox" value="edit" checked>ファイル編集</label>
-        <label><input type="checkbox" value="publish" checked>OneDrive保存</label>
-        <label><input type="checkbox" value="git">git commit・push</label>
-        <label><input type="checkbox" value="codex">Codexへ委任</label>
-        <label><input type="checkbox" value="web">Web検索</label>
-      </div></fieldset>
-      <p id="permission-summary" class="muted"></p><p id="send-message" role="status"></p>
-      <button id="send" class="primary" type="submit">送信（Ctrl+Enter）</button>
-    </form>
-  </details>
   <script>
     // 公開可能な project URL / anon key のみ。reporter_secret・service_role は置かない。
     const SUPABASE_URL = 'https://vuxcopiexcteuuznuhbr.supabase.co';
@@ -304,6 +318,9 @@
         const crew = element('div','crew');
         for (const agent of ['claude','codex']) {
           const group = element('div','agent-group');
+          group.dataset.machine = machine.machine_id; group.dataset.agent = agent; group.dataset.label = machine.label || machine.machine_id;
+          group.setAttribute('role','button'); group.tabIndex = 0;
+          group.title = `${machine.label || machine.machine_id} の ${agent === 'claude' ? 'Clawd' : 'Codex'} に指示する`;
           group.append(element('div','agent-name',agent === 'claude' ? 'Claude' : 'Codex'));
           const clones = element('div','clones');
           const selection = displaySessions(rows.filter(s => s.agent === agent));
@@ -345,7 +362,7 @@
       }
       visibleSessions = nextSessions;
       if (!machines.length) cards.append(element('p','empty',dataReady ? '端末からの報告を待っています。' : '読み込み中…'));
-      $('cards').replaceChildren(cards);
+      $('cards').replaceChildren(cards); updateTargetLabel();
       const timeline = document.createDocumentFragment();
       for (const event of events.slice(0, 20)) {
         const item = element('li');
@@ -434,7 +451,7 @@
       $('login').hidden = !!user; $('dashboard').hidden = !user;
       $('logout').hidden = !user; $('set-password').hidden = !user; $('connection').hidden = !user; if (!user) $('password-form').hidden = true;
       message(''); $('config-message').hidden = true;
-      visibleSessions = new Set(); $('panel').open = false;
+      visibleSessions = new Set();
       if (!user) return;
       render();
       const current = generation;
@@ -501,10 +518,38 @@
         await applySession(null);
       } catch { message('ログアウトできません。もう一度お試しください。', true); }
     });
+    // 宛先の表示と、選ばれているキャラ群の強調
+    function updateTargetLabel() {
+      const target = $('target').value, engine = $('engine').value;
+      const machine = machines.find(m => m.machine_id === target);
+      const place = target === 'any' ? 'どちらでも' : (machine?.label || $('target').selectedOptions[0]?.textContent || target);
+      $('target-label').textContent = `宛先：${place} の ${engine === 'claude' ? 'Clawd' : 'Codex'}`;
+      const color = /^#[0-9a-f]{6}$/i.test(machine?.color || '') ? machine.color : '';
+      $('panel').style.setProperty('--pick', color || 'var(--text)');
+      for (const group of document.querySelectorAll('.agent-group')) {
+        const picked = group.dataset.machine === target && group.dataset.agent === engine;
+        group.classList.toggle('picked', picked);
+        if (picked && color) group.style.setProperty('--pick', color);
+      }
+    }
+    // キャラをタップ → そのPC・そのエンジン宛てにする
+    $('cards').addEventListener('keydown', event => { if ((event.key === 'Enter' || event.key === ' ') && event.target.closest('.agent-group')) { event.preventDefault(); event.target.closest('.agent-group').click(); } });
+    $('cards').addEventListener('click', event => {
+      const group = event.target.closest('.agent-group');
+      if (!group) return;
+      if (!Array.from($('target').options).some(o => o.value === group.dataset.machine)) {
+        $('target').append(new Option(group.dataset.label || group.dataset.machine, group.dataset.machine));
+      }
+      $('target').value = group.dataset.machine; $('engine').value = group.dataset.agent;
+      settingsChanged();
+      $('prompt').focus({ preventScroll:true });
+      $('panel').scrollIntoView({ behavior:'smooth', block:'nearest' });
+    });
     function selectedPermissions() { return Array.from(document.querySelectorAll('.permissions input:checked')).map(el => el.value); }
     function settingsChanged() {
       $('model-label').hidden = $('engine').value === 'codex';
       $('permission-summary').textContent = `許可：${permissionText(selectedPermissions())}`;
+      updateTargetLabel();
       try { localStorage.setItem('dashboard-request',JSON.stringify({target:$('target').value,engine:$('engine').value,model:$('model').value,permissions:selectedPermissions()})); } catch {}
     }
     try {
@@ -542,7 +587,7 @@
       } catch { if (current === generation) $('send-message').textContent = '送信できません。接続・tasks.sql の設定を確認してください。'; }
       finally { $('send').disabled = false; }
     });
-    function panelSpace() { document.querySelector('main').style.paddingBottom = `${$('panel').hidden ? 40 : $('panel').getBoundingClientRect().height + 30}px`; }
+    function panelSpace() { document.querySelector('main').style.paddingBottom = '40px'; }
     new ResizeObserver(panelSpace).observe($('panel'));
     setInterval(() => { if (activeUser) render(); },10000);
     async function init() {
