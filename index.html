@@ -46,7 +46,9 @@
     .error .cross,.error .sweat,.offline .sleep { display:block; } .error .eyes,.offline .eyes { display:none; }
     .offline .character { filter:grayscale(1); opacity:.65; } .offline .body { transform:translateY(35px) scaleY(.65); animation:none; }
     .bubble { position:relative; z-index:1; margin:0 0 2px; padding:2px 5px; width:max-content; max-width:105px; left:50%; transform:translateX(-50%); border:1px solid var(--line); border-radius:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; color:var(--text); background:var(--bg); }
-    .bubble-spacer { visibility:hidden; }
+    .bubbles { display:flex; flex-direction:column; align-items:center; gap:2px; margin-bottom:3px; }
+    .bubbles .bubble { left:auto; transform:none; margin:0; max-width:100%; }
+    .bubbles .bubble.running { border-color:var(--blue); } .bubbles .bubble.waiting { border-color:var(--yellow); } .bubbles .bubble.error { border-color:var(--red); }
     .bubble.talk { border-color:var(--pc,#64748b); }
     .overflow { align-self:center; font-size:12px; padding-left:4px; } .limits { min-width:0; }
     .limit { margin:7px 0; } .limit-label { display:flex; justify-content:space-between; gap:6px; font-size:12px; }
@@ -127,7 +129,7 @@
             <summary>詳細設定（宛先・モデル・許可する操作）</summary>
             <div class="settings">
               <label>宛先<select id="target"><option value="any">どちらでも</option><option value="home">自宅PC</option><option value="school">勤務先PC</option></select></label>
-              <label>エンジン<select id="engine"><option value="claude">Claude</option><option value="codex">Codex</option></select></label>
+              <label>エンジン<select id="engine"><option value="auto">おまかせ（自動判断）</option><option value="claude">Claude</option><option value="codex">Codex</option></select></label>
               <label id="model-label">モデル<select id="model"><option value="auto">自動</option><option value="haiku">Haiku</option><option value="sonnet">Sonnet</option><option value="opus">Opus</option><option value="fable">Fable</option></select></label>
             </div>
             <fieldset><legend>この依頼で許可する操作</legend><div class="permissions">
@@ -254,6 +256,14 @@
       const idle = live.find(row => row.session_key !== 'worker') || live[0];
       return { rows:[idle ? {...idle,state:'idle'} : {state:'offline',session_key:'offline'}], extra:0 };
     }
+    // エンジン自動判断：機械的な実装・集計はCodex、文書・物理・相談はClaude。Claudeの5h残量が少ないときもCodexへ。
+    function pickEngine(prompt, claudeLeft) {
+      const text = String(prompt || '');
+      if (/作問|模範解答|解説|物理|授業|試験|文書|連絡文|相談|計画|検算/.test(text)) return 'claude';
+      if (/HTML|CSS|JavaScript|\bJS\b|\bGAS\b|Python|スクリプト|集計|変換|実装|コード|CSV|Excel|バグ|アプリ|ページ|サイト|自動化/i.test(text)) return 'codex';
+      if (claudeLeft != null && Number.isFinite(claudeLeft) && claudeLeft < 10) return 'codex';
+      return 'claude';
+    }
     // 待機中にこちらへ話しかけるセリフ（10秒ごとに入れ替え）
     const idleLines = {
       claude: ['次は何をしましょう？','授業準備、手伝いますよ','獅子児祭の資料まとめます？','試験問題つくりましょうか','気軽に話しかけてね'],
@@ -324,6 +334,7 @@
           group.append(element('div','agent-name',agent === 'claude' ? 'Claude' : 'Codex'));
           const clones = element('div','clones');
           const selection = displaySessions(rows.filter(s => s.agent === agent));
+          const bubbles = element('div','bubbles');
           const stack = element('div','clone-stack'); stack.style.setProperty('--count',String(selection.rows.length));
           for (const row of selection.rows) {
             const state = stateNames[row.state] ? row.state : 'offline';
@@ -337,21 +348,16 @@
               : ['waiting','error'].includes(state) ? row.detail || stateNames[state]
               : state === 'idle' ? idleLine(agent) : 'Zzz…';
             section.title = stateNames[state] + ' · ' + speech + ' · ' + relative(row.last_seen);
-            // 分身が複数いるときは吹き出しを先頭の1体にまとめ、重ならないようにする
-            const index = selection.rows.indexOf(row);
-            if (selection.rows.length === 1 || index === 0) {
-              const text = selection.rows.length > 1 ? `${selection.rows.length + (selection.extra || 0)}件 同時に作業中` : speech;
-              const bubble = element('div','bubble' + (state === 'idle' ? ' talk' : ''),shortText(text)); bubble.title = text;
-              section.append(bubble);
-            } else {
-              section.append(element('div','bubble bubble-spacer',''));
-            }
+            // 吹き出しは分身ごとに縦に並べる（キャラの上の一覧）
+            const label = (state === 'running' ? workIcon(row.detail) + ' ' : state === 'waiting' ? '❗ ' : state === 'error' ? '⚠ ' : '') + shortText(speech, selection.rows.length > 1 ? 16 : 14);
+            const bubble = element('div','bubble ' + state + (state === 'idle' ? ' talk' : ''),label); bubble.title = speech;
+            bubbles.append(bubble);
             const icon = element('div','work-icon',state === 'running' ? workIcon(row.detail) : '');
             icon.setAttribute('aria-hidden','true'); section.append(icon,character(agent)); stack.append(section);
           }
           clones.append(stack);
-          if (selection.extra) clones.append(element('span','overflow','+' + selection.extra));
-          group.append(clones); crew.append(group);
+          if (selection.extra) bubbles.append(element('div','bubble','他 ' + selection.extra + '件'));
+          group.append(bubbles, clones); crew.append(group);
         }
         const limits = element('div','limits');
         for (const [agent,name] of [['claude','Claude'],['codex','Codex']]) {
@@ -534,7 +540,7 @@
       const machine = machines.find(m => m.machine_id === target);
       const place = target === 'any' ? 'どちらでも' : (machine?.label || $('target').selectedOptions[0]?.textContent || target);
       const offline = target !== 'any' && machines.length && !workerAlive(target);
-      $('target-label').textContent = `宛先：${place} の ${engine === 'claude' ? 'Clawd' : 'Codex'}` + (offline ? '（受付係が停止中）' : '');
+      $('target-label').textContent = `宛先：${place} の ${engine === 'auto' ? 'おまかせ（自動判断）' : engine === 'claude' ? 'Clawd' : 'Codex'}` + (offline ? '（受付係が停止中）' : '');
       const color = /^#[0-9a-f]{6}$/i.test(machine?.color || '') ? machine.color : '';
       $('panel').style.setProperty('--pick', color || 'var(--text)');
       for (const group of document.querySelectorAll('.agent-group')) {
@@ -588,13 +594,19 @@
       const current = generation;
       try {
         settingsChanged();
-        const { error } = await client.from('tasks').insert({prompt,target:$('target').value,engine:$('engine').value,
-          model:$('engine').value === 'codex' ? 'auto' : $('model').value,permissions:selectedPermissions(),status:'queued'});
+        let engine = $('engine').value;
+        if (engine === 'auto') {
+          const claudeRows = statuses.filter(r => r.agent === 'claude' && r.five_hour_used != null);
+          const left = claudeRows.length ? 100 - Number(latestLimits(claudeRows).five_hour_used) : null;
+          engine = pickEngine(prompt, left);
+        }
+        const { error } = await client.from('tasks').insert({prompt,target:$('target').value,engine,
+          model:engine === 'codex' ? 'auto' : $('model').value,permissions:selectedPermissions(),status:'queued'});
         if (error) throw error;
         if (current !== generation) return;
         // 送信中に追記された本文を消さない。
         if ($('prompt').value.trim() === prompt) { $('prompt').value = ''; $('prompt').dispatchEvent(new Event('input')); }
-        $('send-message').textContent = '依頼を受け付けました。' + workerWarning($('target').value); void refresh();
+        $('send-message').textContent = '依頼を受け付けました' + ($('engine').value === 'auto' ? `（自動判断：${engine === 'codex' ? 'Codex' : 'Claude'}）` : '') + '。' + workerWarning($('target').value); void refresh();
       } catch { if (current === generation) $('send-message').textContent = '送信できません。接続・tasks.sql の設定を確認してください。'; }
       finally { $('send').disabled = false; }
     });
