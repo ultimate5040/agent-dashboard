@@ -14,7 +14,9 @@
     main { max-width:1100px; margin:auto; padding:22px 16px 85px; }
     h1 { margin:0; font-size:clamp(18px,4vw,25px); } h2 { margin:0; font-size:17px; }
     header,.header-actions { display:flex; align-items:center; gap:12px; } header { justify-content:space-between; margin-bottom:18px; }
-    .header-actions { justify-content:flex-end; } #connection { margin:0; font-size:12px; } #connection:before { content:'● '; color:var(--green); }
+    .header-actions { justify-content:flex-end; } #connection { margin:0; font-size:12px; } #connection:before { content:'● '; color:var(--gray); }
+    #connection[data-state="connected"]:before { color:var(--green); } #connection[data-state="reconnecting"]:before { color:var(--yellow); } #connection[data-state="disconnected"]:before { color:var(--red); }
+    .fetch-status { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px; } #fetch-status { margin:0; color:var(--muted); }
     button,input,textarea,select { font:inherit; border:1px solid var(--line); border-radius:8px; padding:7px 10px; background:var(--card); color:var(--text); }
     button,summary { cursor:pointer; } button:hover { border-color:var(--blue); } button:disabled { opacity:.6; }
     input,textarea { width:100%; min-width:0; } textarea { resize:vertical; min-height:72px; }
@@ -48,6 +50,7 @@
     .bubble { position:relative; z-index:1; margin:0 0 2px; padding:2px 5px; width:max-content; max-width:105px; left:50%; transform:translateX(-50%); border:1px solid var(--line); border-radius:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; color:var(--text); background:var(--bg); }
     .bubbles { display:flex; flex-direction:column; align-items:center; gap:2px; margin-bottom:3px; }
     .bubbles .bubble { left:auto; transform:none; margin:0; max-width:100%; }
+    .agent-state { display:block; font-weight:600; } .bubble-text { display:block; overflow:hidden; text-overflow:ellipsis; }
     .bubbles .bubble.running { border-color:var(--blue); } .bubbles .bubble.waiting { border-color:var(--yellow); } .bubbles .bubble.error { border-color:var(--red); }
     .bubble.talk { border-color:var(--pc,#64748b); }
     .recent-work { display:flex; flex-direction:column; gap:3px; margin-top:5px; min-width:0; }
@@ -56,7 +59,10 @@
     #continue-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border:1px solid var(--pick,var(--line)); border-radius:12px; padding:2px 8px; }
     .crew { align-items:flex-start; } .task-continuation { font-size:10px; white-space:nowrap; color:var(--muted); }
     .overflow { align-self:center; font-size:12px; padding-left:4px; } .limits { min-width:0; }
-    .limit { margin:7px 0; } .limit-label { display:flex; justify-content:space-between; gap:6px; font-size:12px; }
+    .limit { margin:7px 0; } .limit-label { display:flex; justify-content:space-between; gap:6px; flex-wrap:wrap; font-size:12px; }
+    .limit > summary { list-style:none; font-weight:400; } .limit > summary::-webkit-details-marker { display:none; }
+    .limit-hint { display:block; font-size:12px; color:var(--muted); white-space:normal; } .limit.stale { opacity:.65; }
+    .limit-reset { margin:4px 0; font-size:12px; overflow-wrap:anywhere; } .machine-info { min-width:0; } .worker-state { margin:4px 0 0; font-size:12px; color:var(--muted); }
     .track { height:5px; border-radius:8px; overflow:hidden; background:var(--line); } .fill { height:100%; }
     .machine-waiting { animation:waiting-frame 1.2s infinite; }
     .waiting-mark { color:var(--yellow); animation:blink 1.2s infinite; }
@@ -87,14 +93,23 @@
     @keyframes bounce { 50% { transform:translateY(-7px); } } @keyframes float { 50% { transform:translateY(-3px); } }
     @keyframes blink { 50% { opacity:.25; } } @keyframes waiting-frame { 0%,100% { border-color:var(--yellow); } 50% { border-color:var(--line); } }
     @keyframes pop { from { transform:scale(0); } to { transform:scale(1); } } @keyframes sheet { from { transform:translateY(20px); } to { transform:translateY(0); } }
-    @media(max-width:600px) { main { padding:16px 8px 80px; } header { gap:8px; } .header-actions { gap:6px; } #connection { max-width:88px; } #logout { font-size:11px; padding:5px; } .card { grid-template-columns:65px minmax(0,1fr) 65px; gap:4px; padding:9px 5px; } .machine-name { font-size:12px; } .crew { gap:3px; } .character { width:56px; height:56px; } .agent { flex-basis:58px; width:58px; } .agent + .agent { margin-left:-50px; } .bubble { max-width:82px; } .task > summary { padding:8px; gap:5px; } .task-meta { font-size:10px; } }
-    @media(max-width:600px) { .clone-stack { width:min(100%,calc(58px + (var(--count) - 1) * 8px)); } .agent + .agent { margin-left:calc((100% - 58px * var(--count)) / max(1,var(--count) - 1)); } }
+    @media(max-width:600px) {
+      main { padding:16px 8px 80px; } header { flex-wrap:wrap; gap:8px; } .header-actions { flex-wrap:wrap; gap:6px; }
+      button,input,select,summary,.permissions label { min-height:44px; } button { min-width:44px; } .permissions label { display:inline-flex; align-items:center; }
+      #connection,#message,.muted,.time,.empty,.agent-name,.bubble,.completed-bubble,.overflow,.limit-label,.limit-hint,.limit-reset,.worker-state,.status,.task-meta,.task-continuation,.advanced summary,legend,.permissions label,pre { font-size:14px; }
+      .card { grid-template-columns:minmax(0,1fr) minmax(180px,1.6fr); grid-template-areas:'machine limits' 'crew crew'; gap:12px; padding:12px; }
+      .machine-info { grid-area:machine; } .limits { grid-area:limits; } .crew { grid-area:crew; gap:12px; padding-top:10px; border-top:1px solid var(--line); }
+      .machine-name { font-size:14px; } .character { width:56px; height:56px; } .agent { flex-basis:58px; width:58px; }
+      .bubble { width:100%; max-width:100%; } .limit > summary { padding:3px 0; } .limit-label { gap:2px 6px; }
+      .task > summary { flex-wrap:wrap; padding:8px; gap:5px; } .task-prompt { flex-basis:calc(100% - 80px); } .task-meta { white-space:normal; }
+      .clone-stack { width:min(100%,calc(58px + (var(--count) - 1) * 8px)); } .agent + .agent { margin-left:calc((100% - 58px * var(--count)) / max(1,var(--count) - 1)); }
+    }
     @media(prefers-reduced-motion:reduce) { *, *:before, *:after { animation:none !important; transition:none !important; } }
   </style>
 </head>
 <body>
   <main>
-    <header><h1>エージェント稼働状況</h1><div class="header-actions"><p id="connection" class="muted" hidden>接続中…</p><button id="set-password" type="button" class="secondary" hidden>パスワード設定</button><button id="logout" type="button" hidden>ログアウト</button></div></header>
+    <header><h1>エージェント稼働状況</h1><div class="header-actions"><p id="connection" class="muted" data-state="reconnecting" role="status" hidden>再接続中</p><button id="set-password" type="button" class="secondary" hidden>パスワード設定</button><button id="logout" type="button" hidden>ログアウト</button></div></header>
     <form id="login" hidden>
       <label for="email">メールアドレス</label>
       <input id="email" type="email" autocomplete="username" placeholder="メールアドレス" required>
@@ -112,6 +127,7 @@
     <p id="config-message" hidden></p>
     <p id="message" role="status" aria-live="polite"></p>
     <section id="dashboard" hidden aria-label="稼働ダッシュボード">
+      <div class="fetch-status"><p id="fetch-status" role="status" aria-live="polite"></p><button id="retry" type="button" hidden>再取得</button></div>
       <div id="cards" class="cards"></div>
       <section id="panel" class="panel" hidden aria-label="キャラクターに指示する">
         <form id="request">
@@ -159,10 +175,11 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_ElL36IYZIV_l0NxTrZuQNw_nLSyDRFM';
     const OWNER_EMAIL = 'ultimate5040@gmail.com';
     const $ = id => document.getElementById(id);
-    const stateNames = { idle:'待機中', running:'作業中', waiting:'承認待ち', error:'エラー', offline:'オフライン' };
+    const stateNames = { idle:'待機', running:'実行中', waiting:'承認待ち', error:'エラー', offline:'オフライン' };
     let client, channel, activeUser = null, generation = 0;
     let machines = [], statuses = [], events = [], tasks = [], refreshPending = false, refreshing = false;
     let dataReady = false;
+    let lastFetchedAt = null, fetchFailed = false, realtimeStatus = 'CLOSED';
     let recentTasks = [], parentTasks = [], continuation = null;
     const permissionNames = { read:'読み取り', edit:'編集', publish:'保存', git:'commit・push', codex:'Codex委任', web:'Web検索' };
     const taskNames = { queued:'待機中', running:'実行中', done:'完了', error:'エラー', canceled:'取消' };
@@ -258,8 +275,7 @@
         const sorted = [...active].sort((a,b) => ({running:0,waiting:1,error:2}[a.state] - {running:0,waiting:1,error:2}[b.state]) || String(a.session_key).localeCompare(String(b.session_key)));
         return { rows:sorted.slice(0,6), extra:Math.max(0,sorted.length - 6) };
       }
-      const running = active.find(row => row.state === 'running');
-      if (running) return { rows:[running], extra:0 };
+      if (active.length === 1) return { rows:[active[0]], extra:0 };
       const idle = live.find(row => row.session_key !== 'worker') || live[0];
       return { rows:[idle ? {...idle,state:'idle'} : {state:'offline',session_key:'offline'}], extra:0 };
     }
@@ -282,7 +298,30 @@
     }
     function latestLimits(rows) {
       const sorted = rows.slice().sort((a,b) => Date.parse(b.last_seen) - Date.parse(a.last_seen));
-      return Object.fromEntries(['five_hour_used','seven_day_used','five_hour_resets_at','seven_day_resets_at'].map(key => [key,sorted.find(row => row[key] != null)?.[key] ?? null]));
+      const values = Object.fromEntries(['five_hour_used','seven_day_used','five_hour_resets_at','seven_day_resets_at'].map(key => [key,sorted.find(row => row[key] != null)?.[key] ?? null]));
+      // DBに残量専用の取得時刻がないため、値を持つ行の最終報告時刻を使う。
+      for (const period of ['five_hour','seven_day']) values[period + '_last_seen'] = sorted.find(row => row[period + '_used'] != null)?.last_seen ?? null;
+      return values;
+    }
+    function limitDisplay(used, reportedAt, now = Date.now()) {
+      const known = used != null && used !== '' && Number.isFinite(Number(used));
+      const left = known ? Math.max(0,Math.min(100,100 - Number(used))) : null;
+      const timestamp = Date.parse(reportedAt);
+      const minutes = Number.isFinite(timestamp) ? Math.max(0,Math.floor((now - timestamp) / 60000)) : null;
+      const stale = known && (minutes == null || minutes >= 30);
+      return {left,stale,text:known ? `残り${Math.round(left)}%` : '未取得',
+        freshness:known ? (minutes == null ? '報告時刻不明' : `${minutes}分前`) + (stale ? ' · 古い' : '') : ''};
+    }
+    function connectionDisplay(status, failed = false) {
+      if (failed || status === 'CLOSED') return {state:'disconnected',text:'切断'};
+      return status === 'SUBSCRIBED' ? {state:'connected',text:'接続中'} : {state:'reconnecting',text:'再接続中'};
+    }
+    function fetchFailureLabel(fetchedAt) {
+      return fetchedAt == null ? 'まだ取得できていません' : `前回取得 ${new Date(fetchedAt).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',hour12:false})} 時点の表示`;
+    }
+    function taskTargetLabel(task, machineRows) {
+      const id = task.claimed_by || task.target;
+      return machineRows.find(m => m.machine_id === id)?.label || {home:'自宅PC',school:'勤務先PC',any:'どちらでも'}[id] || id || '未割当';
     }
     function workIcon(detail) {
       const tool = String(detail || '').trim().split(/[\s(:]/)[0].toLowerCase();
@@ -311,22 +350,30 @@
     }
     // SESSION HELPERS END
     let visibleSessions = new Set();
-    function limitBar(label, used, reset) {
-      if (used == null || !Number.isFinite(Number(used))) return null;
-      const left = Math.max(0,Math.min(100,100 - Number(used)));
-      const box = element('div','limit');
-      if (resetLabel(reset)) box.title = resetLabel(reset);
+    function updateConnection() {
+      const view = connectionDisplay(realtimeStatus,fetchFailed);
+      $('connection').textContent = view.text; $('connection').dataset.state = view.state;
+    }
+    function limitBar(label, used, reset, reportedAt, key) {
+      const view = limitDisplay(used,reportedAt);
+      const box = element('details','limit' + (view.stale ? ' stale' : '')); box.dataset.limit = key;
+      const summary = element('summary');
       const heading = element('div','limit-label');
-      heading.append(element('span','',label),element('span','',Math.round(left) + '%'));
+      heading.append(element('span','',label),element('span','',view.text));
+      summary.append(heading);
+      summary.append(element('span','limit-hint',(view.freshness ? '報告 ' + view.freshness + ' · ' : '') + 'リセット日時 ▾'));
+      box.append(summary,element('p','limit-reset',resetLabel(reset) || 'リセット日時：未取得'));
+      if (view.left == null) return box;
       const track = element('div','track');
       track.setAttribute('role','progressbar'); track.setAttribute('aria-label',label + 'の残り');
-      track.setAttribute('aria-valuemin','0'); track.setAttribute('aria-valuemax','100'); track.setAttribute('aria-valuenow',String(left));
-      const fill = element('div','fill'); fill.style.width = left + '%';
-      fill.style.background = left >= 40 ? 'var(--green)' : left >= 15 ? 'var(--yellow)' : 'var(--red)';
-      track.append(fill); box.append(heading,track); return box;
+      track.setAttribute('aria-valuemin','0'); track.setAttribute('aria-valuemax','100'); track.setAttribute('aria-valuenow',String(view.left));
+      const fill = element('div','fill'); fill.style.width = view.left + '%';
+      fill.style.background = view.left >= 40 ? 'var(--green)' : view.left >= 15 ? 'var(--yellow)' : 'var(--red)';
+      track.append(fill); summary.append(track); return box;
     }
     function render() {
       if (!activeUser) return;
+      const openedLimits = new Set(Array.from($('cards').querySelectorAll('.limit[open]')).map(d => d.dataset.limit));
       const cards = document.createDocumentFragment(), nextSessions = new Set();
       for (const machine of machines) {
         const card = element('article','card');
@@ -339,7 +386,10 @@
           card.classList.add('machine-waiting');
           const attention = element('span','waiting-mark','!'); attention.title = '承認待ち'; name.append(attention);
         }
-        card.append(name);
+        const info = element('div','machine-info');
+        const workerLive = rows.some(row => row.session_key === 'worker' && row.state !== 'offline' && Date.now() - Date.parse(row.last_seen) <= 600000);
+        info.append(name,element('p','worker-state',workerLive ? '受付係：稼働中' : '受付係：停止中'));
+        card.append(info);
         const crew = element('div','crew');
         for (const agent of ['claude','codex']) {
           const group = element('div','agent-group');
@@ -365,7 +415,8 @@
             section.title = stateNames[state] + ' · ' + speech + ' · ' + relative(row.last_seen);
             // 吹き出しは分身ごとに縦に並べる（キャラの上の一覧）
             const label = (state === 'running' ? workIcon(row.detail) + ' ' : state === 'waiting' ? '❗ ' : state === 'error' ? '⚠ ' : '') + shortText(speech, selection.rows.length > 1 ? 16 : 14);
-            const bubble = element('div','bubble ' + state + (state === 'idle' ? ' talk' : ''),label); bubble.title = speech;
+            const bubble = element('div','bubble ' + state + (state === 'idle' ? ' talk' : '')); bubble.title = speech;
+            bubble.append(element('span','agent-state',stateNames[state]),element('span','bubble-text',label));
             bubbles.append(bubble);
             const icon = element('div','work-icon',state === 'running' ? workIcon(row.detail) : '');
             icon.setAttribute('aria-hidden','true'); section.append(icon,character(agent)); stack.append(section);
@@ -386,7 +437,11 @@
         const limits = element('div','limits');
         for (const [agent,name] of [['claude','Claude'],['codex','Codex']]) {
           const values = latestLimits(rows.filter(row => row.agent === agent));
-          for (const bar of [limitBar(`${name} 5h`,values.five_hour_used,values.five_hour_resets_at),limitBar(`${name} 週`,values.seven_day_used,values.seven_day_resets_at)]) if (bar) limits.append(bar);
+          for (const [period,caption] of [['five_hour','5h'],['seven_day','週']]) {
+            const key = JSON.stringify([machine.machine_id,agent,period]);
+            const bar = limitBar(`${name} ${caption}`,values[period + '_used'],values[period + '_resets_at'],values[period + '_last_seen'],key);
+            bar.open = openedLimits.has(key); limits.append(bar);
+          }
         }
         card.append(crew,limits); cards.append(card);
       }
@@ -415,10 +470,10 @@
       for (const task of tasks) {
         const card = element('details','task'); card.dataset.task = task.id; card.open = opened.has(task.id);
         const summary = element('summary');
-        const badge = element('span',task.status === 'error' ? 'error' : task.status === 'running' ? 'running' : '',{queued:'⏳',running:'▶',done:'✓',error:'!',canceled:'×'}[task.status] || '?');
+        const badge = element('span','task-status ' + (task.status === 'error' ? 'error' : task.status === 'running' ? 'running' : ''),taskNames[task.status] || '不明');
         badge.title = taskNames[task.status] || task.status;
         const elapsed = Math.max(0,Math.floor(((Date.parse(task.finished_at) || Date.now()) - Date.parse(task.started_at || task.created_at))/1000));
-        const target = {home:'自宅PC',school:'勤務先PC',any:'どちらでも'}[task.target] || task.target;
+        const target = taskTargetLabel(task,machines);
         summary.append(badge,element('span','task-prompt',shortText(task.prompt,32)),element('span','task-meta',target + ' · ' + task.engine),element('span','task-meta',elapsed < 60 ? elapsed + '秒' : Math.floor(elapsed/60) + '分'));
         if (task.parent_id) summary.append(element('span','task-continuation','↪ 続き'));
         const content = element('div','task-content');
@@ -450,6 +505,7 @@
       if (!activeUser) return;
       if (refreshing) { refreshPending = true; return; }
       refreshing = true;
+      $('retry').disabled = true;
       const current = generation;
       try {
         do {
@@ -462,37 +518,47 @@
           ]);
           if (current !== generation || !activeUser) return;
           if (results.some(r => r.error)) throw new Error('read failed');
-          [machines, statuses, events, tasks] = results.map(r => r.data || []);
-          const recentResults = await Promise.all(machines.flatMap(m => ['claude','codex'].map(agent => client.from('tasks').select('*')
+          const [nextMachines, nextStatuses, nextEvents, nextTasks] = results.map(r => r.data || []);
+          const recentResults = await Promise.all(nextMachines.flatMap(m => ['claude','codex'].map(agent => client.from('tasks').select('*')
             .eq('claimed_by',m.machine_id).eq('engine',agent).in('status',['done','error']).not('session_id','is',null)
             .gte('finished_at',new Date(Date.now() - 86400000).toISOString()).order('finished_at',{ascending:false}).order('id',{ascending:false}).limit(3))));
           if (recentResults.some(r => r.error)) throw new Error('recent read failed');
           if (current !== generation || !activeUser) return;
-          recentTasks = recentResults.flatMap(r => r.data || []);
-          const parentIds = [...new Set(tasks.map(t => t.parent_id).filter(Boolean))];
+          const nextRecentTasks = recentResults.flatMap(r => r.data || []);
+          const parentIds = [...new Set(nextTasks.map(t => t.parent_id).filter(Boolean))];
           const parents = parentIds.length ? await client.from('tasks').select('id,prompt').in('id',parentIds) : {data:[]};
           if (parents.error) throw new Error('parent read failed');
           if (current !== generation || !activeUser) return;
-          parentTasks = parents.data || [];
           // 表示件数や24時間枠の外でも、選択中の会話の子を追う。
-          while (continuation) {
-            const parentId = continuation.id;
+          const selectedId = continuation?.id;
+          let nextContinuation = continuation;
+          while (nextContinuation) {
+            const parentId = nextContinuation.id;
             const children = await client.from('tasks').select('*').eq('parent_id',parentId).in('status',['done','error'])
               .not('session_id','is',null).order('finished_at',{ascending:false}).order('id',{ascending:false}).limit(1);
             if (children.error) throw new Error('continuation read failed');
             if (current !== generation || !activeUser) return;
-            if (continuation?.id !== parentId || !children.data?.length) break;
-            setContinuation(children.data[0]);
+            if (continuation?.id !== selectedId || !children.data?.length) break;
+            nextContinuation = children.data[0];
           }
-          dataReady = true; message(''); render();
+          [machines, statuses, events, tasks] = [nextMachines, nextStatuses, nextEvents, nextTasks];
+          recentTasks = nextRecentTasks; parentTasks = parents.data || [];
+          if (continuation?.id === selectedId && nextContinuation !== continuation) setContinuation(nextContinuation);
+          lastFetchedAt = Date.now(); fetchFailed = false; dataReady = true;
+          $('fetch-status').textContent = ''; $('retry').hidden = true; updateConnection(); message(''); render();
         } while (refreshPending && current === generation);
       } catch {
-        if (current === generation && activeUser) message('データを取得できません。接続とアクセス権を確認してください。自動で再試行します。', true);
+        if (current === generation && activeUser) {
+          fetchFailed = true; updateConnection();
+          $('fetch-status').textContent = fetchFailureLabel(lastFetchedAt); $('retry').hidden = false;
+          message('データを取得できません。接続とアクセス権を確認してください。自動で再試行します。', true);
+        }
       } finally {
-        refreshing = false;
+        refreshing = false; $('retry').disabled = false;
         if (current !== generation && activeUser) void refresh();
       }
     }
+    $('retry').addEventListener('click',() => void refresh());
     async function applySession(session) {
       if (session?.user?.email && session.user.email !== OWNER_EMAIL) {
         await client.auth.signOut(); message('このアカウントには閲覧権限がありません。', true); return;
@@ -502,6 +568,8 @@
       generation++; activeUser = user;
       if (channel) { void client.removeChannel(channel); channel = null; }
       machines = []; statuses = []; events = []; tasks = []; dataReady = false;
+      lastFetchedAt = null; fetchFailed = false; realtimeStatus = 'CONNECTING'; updateConnection();
+      $('fetch-status').textContent = ''; $('retry').hidden = true;
       recentTasks = []; parentTasks = []; setContinuation(null);
       $('cards').replaceChildren(); $('events').replaceChildren();
       $('tasks').replaceChildren(); $('panel').hidden = !user;
@@ -519,7 +587,7 @@
         .on('postgres_changes', { event:'*', schema:'public', table:'machines' }, () => void refresh())
         .subscribe(status => {
           if (current !== generation) return;
-          $('connection').textContent = status === 'SUBSCRIBED' ? 'ライブ更新中' : '再接続中 · 30秒ごとに確認';
+          realtimeStatus = status; updateConnection();
           if (status === 'SUBSCRIBED') void refresh();
         });
       void refresh();
