@@ -50,6 +50,11 @@
     .bubbles .bubble { left:auto; transform:none; margin:0; max-width:100%; }
     .bubbles .bubble.running { border-color:var(--blue); } .bubbles .bubble.waiting { border-color:var(--yellow); } .bubbles .bubble.error { border-color:var(--red); }
     .bubble.talk { border-color:var(--pc,#64748b); }
+    .recent-work { display:flex; flex-direction:column; gap:3px; margin-top:5px; min-width:0; }
+    .completed-bubble { display:block; width:100%; min-width:0; padding:2px 4px; border:1px solid var(--pc,#64748b); border-radius:9px; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .continuation { display:flex; align-items:center; gap:6px; margin:6px 0; min-width:0; }
+    #continue-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border:1px solid var(--pick,var(--line)); border-radius:12px; padding:2px 8px; }
+    .crew { align-items:flex-start; } .task-continuation { font-size:10px; white-space:nowrap; color:var(--muted); }
     .overflow { align-self:center; font-size:12px; padding-left:4px; } .limits { min-width:0; }
     .limit { margin:7px 0; } .limit-label { display:flex; justify-content:space-between; gap:6px; font-size:12px; }
     .track { height:5px; border-radius:8px; overflow:hidden; background:var(--line); } .fill { height:100%; }
@@ -118,6 +123,7 @@
             <button type="button" data-domain="kyoka">kyoka</button><button type="button" data-domain="bunsho">bunsho</button>
             <button type="button" data-domain="web-page">web-page</button><button type="button" data-domain="web-app">web-app</button>
           </div>
+          <div id="continuation" class="continuation" hidden><span id="continue-label"></span><button id="continue-cancel" type="button" aria-label="続きモードを解除">✕</button></div>
           <textarea id="prompt" maxlength="8000" required aria-label="依頼内容" placeholder="お願いしたいことを入力…（生徒の個人情報は書かない）"></textarea>
           <div class="request-foot">
             <span id="count" class="muted">0 / 8000字</span>
@@ -157,6 +163,7 @@
     let client, channel, activeUser = null, generation = 0;
     let machines = [], statuses = [], events = [], tasks = [], refreshPending = false, refreshing = false;
     let dataReady = false;
+    let recentTasks = [], parentTasks = [], continuation = null;
     const permissionNames = { read:'読み取り', edit:'編集', publish:'保存', git:'commit・push', codex:'Codex委任', web:'Web検索' };
     const taskNames = { queued:'待機中', running:'実行中', done:'完了', error:'エラー', canceled:'取消' };
     const speeches = { claude:['次は何をしましょう？','授業準備、手伝いますよ','獅子児祭の資料まとめましょうか？'], codex:['実装ならまかせて！','面倒な変換もお手伝い！','次のアプリを作りましょう！'] };
@@ -294,6 +301,14 @@
       const running = candidates.filter(t => t.status === 'running' && t.claimed_by === machineId && t.engine === agent);
       return running.find(t => row.session_key === 'task-' + t.id) || (row.session_key?.startsWith('task-') ? null : running[0]);
     }
+    function completedTasks(rows, machineId, agent, now = Date.now()) {
+      return rows.filter(t => t.claimed_by === machineId && t.engine === agent && ['done','error'].includes(t.status) && t.session_id && now - Date.parse(t.finished_at) >= 0 && now - Date.parse(t.finished_at) <= 86400000)
+        .sort((a,b) => Date.parse(b.finished_at) - Date.parse(a.finished_at) || String(b.id).localeCompare(String(a.id))).slice(0,3);
+    }
+    function requestFields(prompt, target, engine, model, permissions, parent) {
+      const fields = {prompt,model:engine === 'codex' ? 'auto' : model,permissions,status:'queued'};
+      return parent ? {...fields,parent_id:parent.id} : {...fields,target,engine};
+    }
     // SESSION HELPERS END
     let visibleSessions = new Set();
     function limitBar(label, used, reset) {
@@ -358,6 +373,15 @@
           clones.append(stack);
           if (selection.extra) bubbles.append(element('div','bubble','他 ' + selection.extra + '件'));
           group.append(bubbles, clones); crew.append(group);
+          const recent = element('div','recent-work');
+          recent.style.setProperty('--pc',color);
+          for (const task of completedTasks(recentTasks,machine.machine_id,agent)) {
+            const chip = element('button','completed-bubble',(task.status === 'done' ? '✓ ' : '⚠ ') + Array.from(task.prompt || '').slice(0,12).join(''));
+            chip.type = 'button'; chip.dataset.continue = task.id;
+            chip.title = task.prompt + '\n終了：' + new Date(task.finished_at).toLocaleString('ja-JP');
+            recent.append(chip);
+          }
+          group.append(recent);
         }
         const limits = element('div','limits');
         for (const [agent,name] of [['claude','Claude'],['codex','Codex']]) {
@@ -396,8 +420,13 @@
         const elapsed = Math.max(0,Math.floor(((Date.parse(task.finished_at) || Date.now()) - Date.parse(task.started_at || task.created_at))/1000));
         const target = {home:'自宅PC',school:'勤務先PC',any:'どちらでも'}[task.target] || task.target;
         summary.append(badge,element('span','task-prompt',shortText(task.prompt,32)),element('span','task-meta',target + ' · ' + task.engine),element('span','task-meta',elapsed < 60 ? elapsed + '秒' : Math.floor(elapsed/60) + '分'));
+        if (task.parent_id) summary.append(element('span','task-continuation','↪ 続き'));
         const content = element('div','task-content');
         content.append(element('p','',task.prompt),element('div','muted','許可：' + permissionText(task.permissions)));
+        if (task.parent_id) {
+          const parent = [...tasks,...parentTasks].find(t => t.id === task.parent_id);
+          content.append(element('div','muted','元の依頼：' + (parent ? shortText(parent.prompt,20) : '取得できません')));
+        }
         if (task.cost_usd != null) content.append(element('div','muted','費用：$' + Number(task.cost_usd).toFixed(4)));
         if (task.result != null) content.append(element('pre','',task.result));
         card.append(summary,content);
@@ -434,6 +463,27 @@
           if (current !== generation || !activeUser) return;
           if (results.some(r => r.error)) throw new Error('read failed');
           [machines, statuses, events, tasks] = results.map(r => r.data || []);
+          const recentResults = await Promise.all(machines.flatMap(m => ['claude','codex'].map(agent => client.from('tasks').select('*')
+            .eq('claimed_by',m.machine_id).eq('engine',agent).in('status',['done','error']).not('session_id','is',null)
+            .gte('finished_at',new Date(Date.now() - 86400000).toISOString()).order('finished_at',{ascending:false}).order('id',{ascending:false}).limit(3))));
+          if (recentResults.some(r => r.error)) throw new Error('recent read failed');
+          if (current !== generation || !activeUser) return;
+          recentTasks = recentResults.flatMap(r => r.data || []);
+          const parentIds = [...new Set(tasks.map(t => t.parent_id).filter(Boolean))];
+          const parents = parentIds.length ? await client.from('tasks').select('id,prompt').in('id',parentIds) : {data:[]};
+          if (parents.error) throw new Error('parent read failed');
+          if (current !== generation || !activeUser) return;
+          parentTasks = parents.data || [];
+          // 表示件数や24時間枠の外でも、選択中の会話の子を追う。
+          while (continuation) {
+            const parentId = continuation.id;
+            const children = await client.from('tasks').select('*').eq('parent_id',parentId).in('status',['done','error'])
+              .not('session_id','is',null).order('finished_at',{ascending:false}).order('id',{ascending:false}).limit(1);
+            if (children.error) throw new Error('continuation read failed');
+            if (current !== generation || !activeUser) return;
+            if (continuation?.id !== parentId || !children.data?.length) break;
+            setContinuation(children.data[0]);
+          }
           dataReady = true; message(''); render();
         } while (refreshPending && current === generation);
       } catch {
@@ -452,6 +502,7 @@
       generation++; activeUser = user;
       if (channel) { void client.removeChannel(channel); channel = null; }
       machines = []; statuses = []; events = []; tasks = []; dataReady = false;
+      recentTasks = []; parentTasks = []; setContinuation(null);
       $('cards').replaceChildren(); $('events').replaceChildren();
       $('tasks').replaceChildren(); $('panel').hidden = !user;
       $('login').hidden = !!user; $('dashboard').hidden = !user;
@@ -549,11 +600,32 @@
         if (picked && color) group.style.setProperty('--pick', color);
       }
     }
+    function setContinuation(task) {
+      continuation = task;
+      $('continuation').hidden = !task;
+      $('target').disabled = $('engine').disabled = !!task;
+      $('continue-label').textContent = task ? '続き：' + Array.from(task.prompt || '').slice(0,20).join('') : '';
+      if (task) {
+        const target = task.claimed_by;
+        if (!Array.from($('target').options).some(o => o.value === target)) $('target').append(new Option(target,target));
+        $('target').value = target; $('engine').value = task.engine;
+      }
+      settingsChanged();
+    }
+    $('continue-cancel').addEventListener('click',() => setContinuation(null));
     // キャラをタップ → そのPC・そのエンジン宛てにする
-    $('cards').addEventListener('keydown', event => { if ((event.key === 'Enter' || event.key === ' ') && event.target.closest('.agent-group')) { event.preventDefault(); event.target.closest('.agent-group').click(); } });
+    $('cards').addEventListener('keydown', event => { if (!event.target.closest('button') && (event.key === 'Enter' || event.key === ' ') && event.target.closest('.agent-group')) { event.preventDefault(); event.target.closest('.agent-group').click(); } });
     $('cards').addEventListener('click', event => {
       const group = event.target.closest('.agent-group');
       if (!group) return;
+      const chip = event.target.closest('[data-continue]');
+      if (chip) {
+        const task = recentTasks.find(t => t.id === chip.dataset.continue);
+        if (task) setContinuation(task);
+        $('prompt').focus({preventScroll:true});
+        $('panel').scrollIntoView({behavior:'smooth',block:'nearest'}); return;
+      }
+      setContinuation(null);
       if (!Array.from($('target').options).some(o => o.value === group.dataset.machine)) {
         $('target').append(new Option(group.dataset.label || group.dataset.machine, group.dataset.machine));
       }
@@ -600,8 +672,7 @@
           const left = claudeRows.length ? 100 - Number(latestLimits(claudeRows).five_hour_used) : null;
           engine = pickEngine(prompt, left);
         }
-        const { error } = await client.from('tasks').insert({prompt,target:$('target').value,engine,
-          model:engine === 'codex' ? 'auto' : $('model').value,permissions:selectedPermissions(),status:'queued'});
+        const { error } = await client.from('tasks').insert(requestFields(prompt,$('target').value,engine,$('model').value,selectedPermissions(),continuation));
         if (error) throw error;
         if (current !== generation) return;
         // 送信中に追記された本文を消さない。
