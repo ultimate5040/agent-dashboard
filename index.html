@@ -7,76 +7,120 @@
   <title>エージェント稼働状況</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <style>
-    :root { --bg:#f3f6fa; --card:#fff; --text:#17253a; --muted:#56657a; --line:#dce3ec;
-      --green:#16834c; --blue:#2563eb; --yellow:#a96900; --red:#d12d3e; --gray:#7b8797; }
-    @media(prefers-color-scheme:dark) {
-      :root { --bg:#101722; --card:#1a2433; --text:#edf2fa; --muted:#b1bfd2; --line:#354258;
-        --green:#4cce8a; --blue:#70a9ff; --yellow:#f7c24e; --red:#ff7c88; --gray:#97a2b3; }
-    }
+    :root { --bg:#f3f6fa; --card:#fff; --text:#17253a; --muted:#56657a; --line:#dce3ec; --green:#16834c; --blue:#2563eb; --yellow:#a96900; --red:#d12d3e; --gray:#7b8797; }
+    @media(prefers-color-scheme:dark) { :root { --bg:#101722; --card:#1a2433; --text:#edf2fa; --muted:#b1bfd2; --line:#354258; --green:#4cce8a; --blue:#70a9ff; --yellow:#f7c24e; --red:#ff7c88; --gray:#97a2b3; } }
     * { box-sizing:border-box; }
-    body { margin:0; background:var(--bg); color:var(--text); font:15px/1.6 system-ui,sans-serif; }
-    main { max-width:1000px; margin:auto; padding:28px 18px 50px; }
-    h1 { font-size:clamp(22px,5vw,30px); margin:0; letter-spacing:.02em; }
-    h2 { margin:0 0 16px; font-size:20px; }
-    header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:24px; }
-    button,input { font:inherit; border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
-    input { min-width:0; width:100%; background:var(--card); color:var(--text); }
-    button { cursor:pointer; background:var(--card); color:var(--text); }
-    button:hover { border-color:var(--blue); }
-    button:disabled { cursor:wait; opacity:.6; }
-    :focus-visible { outline:3px solid var(--blue); outline-offset:3px; }
-    [hidden] { display:none !important; }
-    #login { max-width:430px; margin:80px auto; }
-    #login label { display:block; margin-bottom:8px; font-weight:600; }
-    #login button { margin-top:12px; width:100%; background:var(--blue); color:var(--bg); }
-    #message { color:var(--muted); overflow-wrap:anywhere; }
-    #message.error { color:var(--red); }
-    .muted,.time { color:var(--muted); font-size:13px; }
-    #connection { margin:0; }
-    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,350px),1fr)); gap:18px; }
-    .card { background:var(--card); padding:20px; border:2px solid var(--gray); border-radius:16px; min-width:0; }
-    .agent + .agent { border-top:1px solid var(--line); margin-top:20px; padding-top:20px; }
-    .agent-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
-    .agent-name { font-size:16px; font-weight:700; }
-    .status { display:inline-flex; align-items:center; gap:8px; font-weight:600; font-size:14px; }
-    .dot { width:10px; height:10px; border-radius:50%; background:currentColor; flex-shrink:0; }
-    .idle { color:var(--green); } .running { color:var(--blue); } .waiting { color:var(--yellow); }
-    .error { color:var(--red); } .offline { color:var(--gray); }
-    .running .dot { animation:pulse 1.7s ease-in-out infinite; }
-    .waiting .dot { animation:blink 1.2s ease-in-out infinite; }
-    @keyframes pulse { 50% { box-shadow:0 0 0 5px color-mix(in srgb,currentColor 20%,transparent); transform:scale(1.1); } }
-    @keyframes blink { 50% { opacity:.25; } }
-    @media(prefers-reduced-motion:reduce) { .dot { animation:none !important; } }
-    .detail { margin:8px 0 2px; overflow-wrap:anywhere; white-space:pre-wrap; }
-    .limit { margin-top:12px; }
-    .limit-label { display:flex; justify-content:space-between; gap:8px; font-size:13px; }
-    .track { height:8px; border-radius:8px; overflow:hidden; background:var(--line); margin:5px 0; }
-    .fill { height:100%; border-radius:8px; }
-    .timeline { margin-top:30px; background:var(--card); padding:20px; border:1px solid var(--line); border-radius:16px; }
-    #events { list-style:none; padding:0; margin:0; }
-    #events li { padding:12px 0; border-bottom:1px solid var(--line); overflow-wrap:anywhere; }
-    #events li:last-child { border-bottom:0; }
-    .event-top { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    #events p { margin:3px 0 0; }
-    .empty { color:var(--muted); padding:12px 0; }
-    @media(max-width:400px) { main { padding:20px 14px; } .card,.timeline { padding:16px; } }
+    body { margin:0; background:var(--bg); color:var(--text); font:14px/1.6 system-ui,sans-serif; }
+    main { max-width:1100px; margin:auto; padding:22px 16px 85px; }
+    h1 { margin:0; font-size:clamp(18px,4vw,25px); } h2 { margin:0; font-size:17px; }
+    header,.header-actions { display:flex; align-items:center; gap:12px; } header { justify-content:space-between; margin-bottom:18px; }
+    .header-actions { justify-content:flex-end; } #connection { margin:0; font-size:12px; } #connection:before { content:'● '; color:var(--green); }
+    button,input,textarea,select { font:inherit; border:1px solid var(--line); border-radius:8px; padding:7px 10px; background:var(--card); color:var(--text); }
+    button,summary { cursor:pointer; } button:hover { border-color:var(--blue); } button:disabled { opacity:.6; }
+    input,textarea { width:100%; min-width:0; } textarea { resize:vertical; min-height:72px; }
+    :focus-visible { outline:3px solid var(--blue); outline-offset:3px; } [hidden] { display:none !important; }
+    #login { max-width:430px; margin:70px auto 12px; } #login label { display:block; margin-bottom:8px; } #login button { margin-top:12px; width:100%; }
+    #config-message { max-width:430px; margin:auto; color:var(--muted); }
+    #message,.muted,.time,.empty { color:var(--muted); font-size:12px; } #message.error,.error { color:var(--red); }
+    .cards { display:grid; gap:12px; }
+    .card { display:grid; grid-template-columns:115px minmax(0,1fr) 112px; align-items:center; gap:12px; background:var(--card); border:2px solid var(--line); border-radius:14px; padding:12px; min-width:0; }
+    .machine-name { display:flex; align-items:center; gap:6px; overflow-wrap:anywhere; font-size:14px; }
+    .dot { width:8px; height:8px; border-radius:50%; background:currentColor; flex-shrink:0; }
+    .crew { display:flex; align-items:center; justify-content:space-around; gap:10px; min-width:0; }
+    .agent-group { min-width:0; text-align:center; flex:1; } .agent-name { font-size:11px; color:var(--muted); }
+    .clones { display:flex; align-items:flex-end; justify-content:center; padding-top:3px; }
+    .clone-stack { display:flex; align-items:flex-end; justify-content:center; width:min(100%,calc(76px + (var(--count) - 1) * 46px)); }
+    .agent { position:relative; flex:0 0 76px; width:76px; border:1px solid transparent; border-radius:8px; }
+    .agent + .agent { margin-left:calc((100% - 76px * var(--count)) / max(1,var(--count) - 1)); } .agent:nth-child(even) { top:5px; }
+    .agent:hover,.agent:focus-within { z-index:2; } .agent.new { animation:pop .35s ease-out; }
+    .character { display:block; width:64px; height:64px; margin:auto; overflow:visible; }
+    .body { transform-origin:80px 115px; animation:breathe 4s ease-in-out infinite; }
+    .eyes { transform-origin:80px 65px; animation:eyes 7s infinite; }
+    .attention,.sweat,.cross,.sleep { display:none; }
+    .running .body { animation:bounce .7s ease-in-out infinite; }
+    .work-icon { height:23px; font-size:19px; line-height:23px; animation:float 3s ease-in-out infinite; }
+    .waiting { color:var(--yellow); border-color:var(--yellow); animation:waiting-frame 1.2s infinite; }
+    .waiting .attention { display:block; animation:blink 1.2s infinite; }
+    .waiting .hands { transform:translateY(-28px) rotate(-12deg); transform-origin:80px 100px; }
+    .error .cross,.error .sweat,.offline .sleep { display:block; } .error .eyes,.offline .eyes { display:none; }
+    .offline .character { filter:grayscale(1); opacity:.65; } .offline .body { transform:translateY(35px) scaleY(.65); animation:none; }
+    .bubble { position:relative; z-index:1; margin:0 0 2px; padding:2px 5px; width:max-content; max-width:105px; left:50%; transform:translateX(-50%); border:1px solid var(--line); border-radius:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; color:var(--text); background:var(--bg); }
+    .bubble-spacer { visibility:hidden; }
+    .bubble.talk { border-color:var(--pc,#64748b); }
+    .overflow { align-self:center; font-size:12px; padding-left:4px; } .limits { min-width:0; }
+    .limit { margin:7px 0; } .limit-label { display:flex; justify-content:space-between; gap:6px; font-size:12px; }
+    .track { height:5px; border-radius:8px; overflow:hidden; background:var(--line); } .fill { height:100%; }
+    .machine-waiting { animation:waiting-frame 1.2s infinite; }
+    .waiting-mark { color:var(--yellow); animation:blink 1.2s infinite; }
+    .timeline { margin-top:18px; padding:12px; background:var(--card); border:1px solid var(--line); border-radius:12px; }
+    summary { font-weight:600; } #events { list-style:none; margin:0; padding:0; } #events li { padding:8px 0; border-bottom:1px solid var(--line); }
+    .event-top,.status { display:flex; align-items:center; gap:8px; flex-wrap:wrap; } .status { display:inline-flex; font-size:12px; }
+    .idle { color:var(--green); } .running { color:var(--blue); } .offline { color:var(--gray); } #events p { margin:2px 0; }
+    .task { margin:8px 0; border:1px solid var(--line); border-radius:10px; background:var(--card); overflow:hidden; }
+    .task > summary { display:flex; align-items:center; gap:8px; padding:9px 12px; font-weight:400; }
+    .task-prompt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
+    .task-meta { white-space:nowrap; font-size:11px; color:var(--muted); } .task-content { padding:0 12px 10px; }
+    .task-content p { white-space:pre-wrap; overflow-wrap:anywhere; } pre { white-space:pre-wrap; overflow-wrap:anywhere; font:12px/1.7 ui-monospace,monospace; }
+    .panel { position:fixed; z-index:5; bottom:0; left:50%; transform:translateX(-50%); width:min(100%,1000px); max-height:78dvh; overflow:auto; padding:12px 16px calc(12px + env(safe-area-inset-bottom)); background:var(--card); border:1px solid var(--line); border-radius:18px 18px 0 0; box-shadow:0 -8px 30px #0002; }
+    .panel[open] #request { animation:sheet .2s ease-out; }
+    .settings,.permissions,.chips { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; } .settings label { flex:1; min-width:95px; } .settings select { display:block; width:100%; }
+    fieldset { border:0; padding:0; margin-top:10px; } legend { font-size:12px; }
+    .permissions label { position:relative; border:1px solid var(--line); border-radius:20px; padding:3px 9px; font-size:12px; cursor:pointer; }
+    .permissions label:has(input:checked) { color:var(--blue); border-color:var(--blue); background:color-mix(in srgb,var(--blue) 10%,var(--card)); }
+    .permissions label:focus-within { outline:2px solid var(--blue); } .permissions input { position:absolute; opacity:0; width:1px; height:1px; }
+    .primary { background:var(--blue); color:var(--card); width:100%; }
+    @keyframes breathe { 50% { transform:scale(1.025); } } @keyframes eyes { 0%,92%,96%,100% { transform:scaleY(1); } 94% { transform:scaleY(.1); } }
+    @keyframes bounce { 50% { transform:translateY(-7px); } } @keyframes float { 50% { transform:translateY(-3px); } }
+    @keyframes blink { 50% { opacity:.25; } } @keyframes waiting-frame { 0%,100% { border-color:var(--yellow); } 50% { border-color:var(--line); } }
+    @keyframes pop { from { transform:scale(0); } to { transform:scale(1); } } @keyframes sheet { from { transform:translateY(20px); } to { transform:translateY(0); } }
+    @media(max-width:600px) { main { padding:16px 8px 80px; } header { gap:8px; } .header-actions { gap:6px; } #connection { max-width:88px; } #logout { font-size:11px; padding:5px; } .card { grid-template-columns:65px minmax(0,1fr) 65px; gap:4px; padding:9px 5px; } .machine-name { font-size:12px; } .crew { gap:3px; } .character { width:56px; height:56px; } .agent { flex-basis:58px; width:58px; } .agent + .agent { margin-left:-50px; } .bubble { max-width:82px; } .task > summary { padding:8px; gap:5px; } .task-meta { font-size:10px; } }
+    @media(max-width:600px) { .clone-stack { width:min(100%,calc(58px + (var(--count) - 1) * 8px)); } .agent + .agent { margin-left:calc((100% - 58px * var(--count)) / max(1,var(--count) - 1)); } }
+    @media(prefers-reduced-motion:reduce) { *, *:before, *:after { animation:none !important; transition:none !important; } }
   </style>
 </head>
 <body>
   <main>
-    <header><div><h1>エージェント稼働状況</h1><p id="connection" class="muted" hidden>接続中…</p></div>
-      <button id="logout" type="button" hidden>ログアウト</button></header>
+    <header><h1>エージェント稼働状況</h1><div class="header-actions"><p id="connection" class="muted" hidden>接続中…</p><button id="logout" type="button" hidden>ログアウト</button></div></header>
     <form id="login" hidden>
       <label for="email">メールアドレス</label>
       <input id="email" type="email" autocomplete="email" placeholder="メールアドレス" required>
       <button type="submit">ログインリンクを送信</button>
     </form>
+    <p id="config-message" hidden></p>
     <p id="message" role="status" aria-live="polite"></p>
     <section id="dashboard" hidden aria-label="稼働ダッシュボード">
       <div id="cards" class="cards"></div>
-      <section class="timeline"><h2>直近の履歴</h2><ol id="events"></ol></section>
+      <section aria-label="依頼一覧"><h2 style="margin-top:24px">依頼一覧</h2><div id="tasks"></div></section>
+      <details class="timeline"><summary>直近のイベント</summary><ol id="events"></ol></details>
     </section>
   </main>
+  <details id="panel" class="panel" hidden>
+    <summary>キャラクターに指示する</summary>
+    <form id="request">
+      <p class="muted">生徒の個人情報は書かない</p>
+      <div class="chips" aria-label="領域">
+        <button type="button" data-domain="kyoka">kyoka</button><button type="button" data-domain="bunsho">bunsho</button>
+        <button type="button" data-domain="web-page">web-page</button><button type="button" data-domain="web-app">web-app</button>
+      </div>
+      <label for="prompt">依頼内容</label><textarea id="prompt" maxlength="8000" required placeholder="お願いしたいことを入力…"></textarea>
+      <div id="count" class="muted">0 / 8000字</div>
+      <div class="settings">
+        <label>宛先<select id="target"><option value="any">どちらでも</option><option value="home">自宅PC</option><option value="school">勤務先PC</option></select></label>
+        <label>エンジン<select id="engine"><option value="claude">Claude</option><option value="codex">Codex</option></select></label>
+        <label id="model-label">モデル<select id="model"><option value="auto">自動</option><option value="haiku">Haiku</option><option value="sonnet">Sonnet</option><option value="opus">Opus</option><option value="fable">Fable</option></select></label>
+      </div>
+      <fieldset><legend>この依頼で許可する操作</legend><div class="permissions">
+        <label><input type="checkbox" value="read" checked disabled>読み取り</label>
+        <label><input type="checkbox" value="edit" checked>ファイル編集</label>
+        <label><input type="checkbox" value="publish" checked>OneDrive保存</label>
+        <label><input type="checkbox" value="git">git commit・push</label>
+        <label><input type="checkbox" value="codex">Codexへ委任</label>
+        <label><input type="checkbox" value="web">Web検索</label>
+      </div></fieldset>
+      <p id="permission-summary" class="muted"></p><p id="send-message" role="status"></p>
+      <button id="send" class="primary" type="submit">送信（Ctrl+Enter）</button>
+    </form>
+  </details>
   <script>
     // 公開可能な project URL / anon key のみ。reporter_secret・service_role は置かない。
     const SUPABASE_URL = 'https://vuxcopiexcteuuznuhbr.supabase.co';
@@ -85,8 +129,63 @@
     const $ = id => document.getElementById(id);
     const stateNames = { idle:'待機中', running:'作業中', waiting:'承認待ち', error:'エラー', offline:'オフライン' };
     let client, channel, activeUser = null, generation = 0;
-    let machines = [], statuses = [], events = [], refreshPending = false, refreshing = false;
+    let machines = [], statuses = [], events = [], tasks = [], refreshPending = false, refreshing = false;
     let dataReady = false;
+    const permissionNames = { read:'読み取り', edit:'編集', publish:'保存', git:'commit・push', codex:'Codex委任', web:'Web検索' };
+    const taskNames = { queued:'待機中', running:'実行中', done:'完了', error:'エラー', canceled:'取消' };
+    const speeches = { claude:['次は何をしましょう？','授業準備、手伝いますよ','獅子児祭の資料まとめましょうか？'], codex:['実装ならまかせて！','面倒な変換もお手伝い！','次のアプリを作りましょう！'] };
+    // SVG は固定の形だけを DOM API で生成。サーバー由来の文字列は textContent に限定。
+    function character(agent) {
+      const ns = 'http://www.w3.org/2000/svg';
+      function svg(tag, attrs, children = []) {
+        const node = document.createElementNS(ns,tag);
+        for (const [key,value] of Object.entries(attrs)) node.setAttribute(key,value);
+        for (const c of children) node.append(c);
+        return node;
+      }
+      const ellipse = (cx,cy,rx,ry,fill,extra = {}) => svg('ellipse',{ cx,cy,rx,ry,fill,...extra });
+      const line = (d,stroke = '#27364d',extra = {}) => svg('path',{ d,fill:'none',stroke,'stroke-width':3,'stroke-linecap':'round',...extra });
+      const text = (x,y,value,cls) => { const n = svg('text',{ x,y,class:cls,fill:'#53657c','font-size':22 }); n.textContent=value; return n; };
+      const rect = (x,y,width,height,fill,extra = {}) => svg('rect',{ x,y,width,height,fill,...extra });
+      const root = svg('svg',{ viewBox:'0 0 160 150',class:'character',role:'img','aria-label':agent === 'claude' ? 'Clawd（Claude）' : 'Codex pet（Codex）' });
+      root.append(ellipse(80,140,48,6,'#8995a433'));
+      const body = svg('g',{class:'body'});
+      const eyes = svg('g',{class:'eyes'});
+      const hands = svg('g',{class:'hands'});
+      let cross;
+      if (agent === 'claude') {
+        // Clawd：オレンジのドット絵。横長の胴体・黒い四角の目・左右の腕・4本足
+        const orange = '#d97757';
+        const pixel = svg('g',{'shape-rendering':'crispEdges'});
+        pixel.append(rect(32,62,96,48,orange),
+          rect(40,110,8,26,orange),rect(56,110,8,26,orange),rect(96,110,8,26,orange),rect(112,110,8,26,orange));
+        body.append(pixel);
+        hands.append(rect(18,78,14,16,orange,{'shape-rendering':'crispEdges'}),rect(128,78,14,16,orange,{'shape-rendering':'crispEdges'}));
+        eyes.append(rect(52,72,9,13,'#1a1a1a'),rect(99,72,9,13,'#1a1a1a'));
+        cross = line('M50 72 L62 85 M62 72 L50 85 M97 72 L109 85 M109 72 L97 85','#1a1a1a',{class:'cross','stroke-linecap':'square'});
+      } else {
+        // Codex pet：青い雲形の頭に端末画面（>_）、小さな胴体
+        const blue = '#4f7fe8', edge = '#2f5bd3';
+        const head = svg('g',{fill:blue,stroke:edge,'stroke-width':2});
+        for (const [cx,cy,r] of [[52,50,20],[80,36,24],[108,50,20],[46,72,18],[114,72,18],[80,80,26],[62,82,18],[98,82,18]]) head.append(svg('circle',{cx,cy,r}));
+        const fill = svg('g',{fill:blue});
+        for (const [cx,cy,r] of [[52,50,18],[80,36,22],[108,50,18],[46,72,16],[114,72,16],[80,80,24],[62,82,16],[98,82,16],[80,60,30]]) fill.append(svg('circle',{cx,cy,r}));
+        body.append(rect(68,120,9,14,blue,{rx:3}),rect(84,120,9,14,blue,{rx:3}),
+          rect(62,96,36,28,blue,{rx:10,stroke:edge,'stroke-width':2}),
+          line('M70 104 L75 109 L70 114 M79 114 L86 114','#bfe9ff',{'stroke-width':2}),
+          head,fill,rect(50,46,60,36,'#18214a',{rx:9}));
+        hands.append(ellipse(56,108,7,9,blue,{stroke:edge,'stroke-width':2}),ellipse(104,108,7,9,blue,{stroke:edge,'stroke-width':2}));
+        eyes.append(line('M62 56 L71 64 L62 72','#8be9ff',{'stroke-width':4}),rect(78,68,16,4,'#8be9ff',{rx:1}));
+        cross = line('M62 56 L74 70 M74 56 L62 70 M84 56 L96 70 M96 56 L84 70','#ff7a8a',{class:'cross'});
+      }
+      body.append(eyes,cross);
+      body.append(hands,svg('path',{d:'M126 48 Q117 60 126 63 Q137 59 126 48',fill:'#5ab9ed',class:'sweat'}));
+      root.append(body,text(124,40,'!','attention'),text(100,42,'Zzz','sleep'));
+      return root;
+    }
+    function permissionText(values) {
+      return (Array.isArray(values) ? values : []).filter(k => permissionNames[k]).map(k => permissionNames[k]).join('・') || '読み取り';
+    }
 
     function message(text, error = false) {
       $('message').textContent = text;
@@ -107,7 +206,7 @@
       return `${Math.floor(seconds / 86400)}日前`;
     }
     function resetLabel(value) {
-      if (!value || !Number.isFinite(Date.parse(value))) return 'リセット時刻：未取得';
+      if (!value || !Number.isFinite(Date.parse(value))) return '';
       return `リセット：${new Date(value).toLocaleString('ja-JP', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' })}`;
     }
     function stateBadge(state) {
@@ -118,48 +217,124 @@
       badge.append(dot, document.createTextNode(stateNames[safe]));
       return badge;
     }
+    // SESSION HELPERS START: DOM に依存しない表示規則。
+    function displaySessions(rows, now = Date.now()) {
+      const live = rows.filter(row => Number.isFinite(Date.parse(row.last_seen)) && now - Date.parse(row.last_seen) <= 600000 && row.state !== 'offline');
+      const active = live.filter(row => row.session_key !== 'worker' && ['running','waiting','error'].includes(row.state));
+      if (active.length >= 2) {
+        const sorted = [...active].sort((a,b) => ({running:0,waiting:1,error:2}[a.state] - {running:0,waiting:1,error:2}[b.state]) || String(a.session_key).localeCompare(String(b.session_key)));
+        return { rows:sorted.slice(0,6), extra:Math.max(0,sorted.length - 6) };
+      }
+      const running = active.find(row => row.state === 'running');
+      if (running) return { rows:[running], extra:0 };
+      const idle = live.find(row => row.session_key !== 'worker') || live[0];
+      return { rows:[idle ? {...idle,state:'idle'} : {state:'offline',session_key:'offline'}], extra:0 };
+    }
+    // 待機中にこちらへ話しかけるセリフ（10秒ごとに入れ替え）
+    const idleLines = {
+      claude: ['次は何をしましょう？','授業準備、手伝いますよ','獅子児祭の資料まとめます？','試験問題つくりましょうか','気軽に話しかけてね'],
+      codex: ['実装ならまかせて！','集計・変換もできます','HPの更新やりましょうか','コード書きたいです！','面倒な作業ください']
+    };
+    function idleLine(agent) {
+      const lines = idleLines[agent] || idleLines.claude;
+      return lines[Math.floor(Date.now() / 10000) % lines.length];
+    }
+    function latestLimits(rows) {
+      const sorted = rows.slice().sort((a,b) => Date.parse(b.last_seen) - Date.parse(a.last_seen));
+      return Object.fromEntries(['five_hour_used','seven_day_used','five_hour_resets_at','seven_day_resets_at'].map(key => [key,sorted.find(row => row[key] != null)?.[key] ?? null]));
+    }
+    function workIcon(detail) {
+      const tool = String(detail || '').trim().split(/[\s(:]/)[0].toLowerCase();
+      if (tool === 'read') return '📖';
+      if (['edit','write','notebookedit'].includes(tool)) return '✏️';
+      if (['bash','powershell'].includes(tool)) return '⚙️';
+      if (['grep','glob','websearch','webfetch'].includes(tool)) return '🔍';
+      if (['agent','task'].includes(tool)) return '👥';
+      return '💭';
+    }
+    function shortText(value, max = 14) {
+      const chars = Array.from(String(value || ''));
+      return chars.length > max ? chars.slice(0,max - 1).join('') + '…' : chars.join('');
+    }
+    function runningTask(row, candidates, machineId, agent) {
+      const running = candidates.filter(t => t.status === 'running' && t.claimed_by === machineId && t.engine === agent);
+      return running.find(t => row.session_key === 'task-' + t.id) || (row.session_key?.startsWith('task-') ? null : running[0]);
+    }
+    // SESSION HELPERS END
+    let visibleSessions = new Set();
     function limitBar(label, used, reset) {
-      const box = element('div', 'limit');
-      const known = used != null && Number.isFinite(Number(used));
-      const left = known ? Math.max(0, Math.min(100, 100 - Number(used))) : null;
-      const heading = element('div', 'limit-label');
-      heading.append(element('span', '', label), element('span', '', known ? `残り ${Math.round(left)}%` : '未取得'));
-      const track = element('div', 'track');
-      track.setAttribute('role', 'progressbar');
-      track.setAttribute('aria-label', `${label}の残り`);
-      track.setAttribute('aria-valuemin', '0'); track.setAttribute('aria-valuemax', '100');
-      if (known) track.setAttribute('aria-valuenow', String(left));
-      else track.setAttribute('aria-valuetext', '未取得');
-      const fill = element('div', 'fill');
-      fill.style.width = `${left || 0}%`;
+      if (used == null || !Number.isFinite(Number(used))) return null;
+      const left = Math.max(0,Math.min(100,100 - Number(used)));
+      const box = element('div','limit');
+      if (resetLabel(reset)) box.title = resetLabel(reset);
+      const heading = element('div','limit-label');
+      heading.append(element('span','',label),element('span','',Math.round(left) + '%'));
+      const track = element('div','track');
+      track.setAttribute('role','progressbar'); track.setAttribute('aria-label',label + 'の残り');
+      track.setAttribute('aria-valuemin','0'); track.setAttribute('aria-valuemax','100'); track.setAttribute('aria-valuenow',String(left));
+      const fill = element('div','fill'); fill.style.width = left + '%';
       fill.style.background = left >= 40 ? 'var(--green)' : left >= 15 ? 'var(--yellow)' : 'var(--red)';
-      track.append(fill); box.append(heading, track, element('div', 'muted', resetLabel(reset)));
-      return box;
+      track.append(fill); box.append(heading,track); return box;
     }
     function render() {
       if (!activeUser) return;
-      const cards = document.createDocumentFragment();
+      const cards = document.createDocumentFragment(), nextSessions = new Set();
       for (const machine of machines) {
-        const card = element('article', 'card');
-        if (/^#[0-9a-f]{6}$/i.test(machine.color || '')) card.style.borderColor = machine.color;
-        card.append(element('h2', '', machine.label || machine.machine_id));
-        for (const agent of ['claude', 'codex']) {
-          const row = statuses.find(s => s.machine_id === machine.machine_id && s.agent === agent);
-          const last = Date.parse(row?.last_seen);
-          const stale = !Number.isFinite(last) || Date.now() - last >= 10 * 60 * 1000;
-          const state = stale ? 'offline' : row.state;
-          const section = element('div', 'agent');
-          const heading = element('div', 'agent-heading');
-          heading.append(element('span', 'agent-name', agent === 'claude' ? 'Claude' : 'Codex'), stateBadge(state));
-          section.append(heading, element('p', 'detail', row?.detail || '報告なし'),
-            element('div', 'time', `最終更新：${relative(row?.last_seen)}`));
-          if (agent === 'claude') section.append(limitBar('5時間', row?.five_hour_used, row?.five_hour_resets_at),
-            limitBar('週', row?.seven_day_used, row?.seven_day_resets_at));
-          card.append(section);
+        const card = element('article','card');
+        const color = /^#[0-9a-f]{6}$/i.test(machine.color || '') ? machine.color : '#64748b';
+        const rows = statuses.filter(s => s.machine_id === machine.machine_id);
+        const name = element('h2','machine-name');
+        const dot = element('span','dot'); dot.style.color = color; dot.setAttribute('aria-hidden','true');
+        name.append(dot,document.createTextNode(machine.label || machine.machine_id));
+        if (rows.some(row => row.state === 'waiting' && Date.now() - Date.parse(row.last_seen) <= 600000)) {
+          card.classList.add('machine-waiting');
+          const attention = element('span','waiting-mark','!'); attention.title = '承認待ち'; name.append(attention);
         }
-        cards.append(card);
+        card.append(name);
+        const crew = element('div','crew');
+        for (const agent of ['claude','codex']) {
+          const group = element('div','agent-group');
+          group.append(element('div','agent-name',agent === 'claude' ? 'Claude' : 'Codex'));
+          const clones = element('div','clones');
+          const selection = displaySessions(rows.filter(s => s.agent === agent));
+          const stack = element('div','clone-stack'); stack.style.setProperty('--count',String(selection.rows.length));
+          for (const row of selection.rows) {
+            const state = stateNames[row.state] ? row.state : 'offline';
+            if (state === 'waiting') card.classList.add('machine-waiting');
+            const key = JSON.stringify([machine.machine_id,agent,row.session_key || 'main']);
+            nextSessions.add(key);
+            const section = element('div','agent ' + state + (visibleSessions.has(key) ? '' : ' new'));
+            const task = state === 'running' ? runningTask(row,tasks,machine.machine_id,agent) : null;
+            const speech = state === 'running' ? (task ? Array.from(task.prompt || '').slice(0,20).join('') : row.detail || '作業中')
+              : row.session_key === 'worker' ? '受付係待機中'
+              : ['waiting','error'].includes(state) ? row.detail || stateNames[state]
+              : state === 'idle' ? idleLine(agent) : 'Zzz…';
+            section.title = stateNames[state] + ' · ' + speech + ' · ' + relative(row.last_seen);
+            // 分身が複数いるときは吹き出しを先頭の1体にまとめ、重ならないようにする
+            const index = selection.rows.indexOf(row);
+            if (selection.rows.length === 1 || index === 0) {
+              const text = selection.rows.length > 1 ? `${selection.rows.length + (selection.extra || 0)}件 同時に作業中` : speech;
+              const bubble = element('div','bubble' + (state === 'idle' ? ' talk' : ''),shortText(text)); bubble.title = text;
+              section.append(bubble);
+            } else {
+              section.append(element('div','bubble bubble-spacer',''));
+            }
+            const icon = element('div','work-icon',state === 'running' ? workIcon(row.detail) : '');
+            icon.setAttribute('aria-hidden','true'); section.append(icon,character(agent)); stack.append(section);
+          }
+          clones.append(stack);
+          if (selection.extra) clones.append(element('span','overflow','+' + selection.extra));
+          group.append(clones); crew.append(group);
+        }
+        const limits = element('div','limits');
+        for (const [agent,name] of [['claude','Claude'],['codex','Codex']]) {
+          const values = latestLimits(rows.filter(row => row.agent === agent));
+          for (const bar of [limitBar(`${name} 5h`,values.five_hour_used,values.five_hour_resets_at),limitBar(`${name} 週`,values.seven_day_used,values.seven_day_resets_at)]) if (bar) limits.append(bar);
+        }
+        card.append(crew,limits); cards.append(card);
       }
-      if (!machines.length) cards.append(element('p', 'empty', dataReady ? '端末からの報告を待っています。' : '読み込み中…'));
+      visibleSessions = nextSessions;
+      if (!machines.length) cards.append(element('p','empty',dataReady ? '端末からの報告を待っています。' : '読み込み中…'));
       $('cards').replaceChildren(cards);
       const timeline = document.createDocumentFragment();
       for (const event of events.slice(0, 20)) {
@@ -174,6 +349,40 @@
       }
       if (!events.length) timeline.append(element('li', 'empty', dataReady ? '履歴はまだありません。' : '読み込み中…'));
       $('events').replaceChildren(timeline);
+      renderTasks();
+    }
+    function renderTasks() {
+      // 開いている結果を Realtime/時刻更新で閉じない。
+      const opened = new Set(Array.from($('tasks').querySelectorAll('details[open]')).map(d => d.dataset.task));
+      const list = document.createDocumentFragment();
+      for (const task of tasks) {
+        const card = element('details','task'); card.dataset.task = task.id; card.open = opened.has(task.id);
+        const summary = element('summary');
+        const badge = element('span',task.status === 'error' ? 'error' : task.status === 'running' ? 'running' : '',{queued:'⏳',running:'▶',done:'✓',error:'!',canceled:'×'}[task.status] || '?');
+        badge.title = taskNames[task.status] || task.status;
+        const elapsed = Math.max(0,Math.floor(((Date.parse(task.finished_at) || Date.now()) - Date.parse(task.started_at || task.created_at))/1000));
+        const target = {home:'自宅PC',school:'勤務先PC',any:'どちらでも'}[task.target] || task.target;
+        summary.append(badge,element('span','task-prompt',shortText(task.prompt,32)),element('span','task-meta',target + ' · ' + task.engine),element('span','task-meta',elapsed < 60 ? elapsed + '秒' : Math.floor(elapsed/60) + '分'));
+        const content = element('div','task-content');
+        content.append(element('p','',task.prompt),element('div','muted','許可：' + permissionText(task.permissions)));
+        if (task.cost_usd != null) content.append(element('div','muted','費用：$' + Number(task.cost_usd).toFixed(4)));
+        if (task.result != null) content.append(element('pre','',task.result));
+        card.append(summary,content);
+        if (task.status === 'queued') {
+          const cancel = element('button','','取消'); cancel.type = 'button';
+          cancel.addEventListener('click',async () => {
+            cancel.disabled = true;
+            try {
+              const { error } = await client.from('tasks').update({status:'canceled'}).eq('id',task.id).eq('status','queued');
+              if (error) throw error; await refresh();
+            } catch { message('取消できません。再試行してください。',true); }
+            finally { cancel.disabled = false; }
+          }); content.append(cancel);
+        }
+        list.append(card);
+      }
+      if (!tasks.length) list.append(element('p','empty','依頼はまだありません。'));
+      $('tasks').replaceChildren(list);
     }
     async function refresh() {
       if (!activeUser) return;
@@ -186,11 +395,12 @@
           const results = await Promise.all([
             client.from('machines').select('*').order('machine_id'),
             client.from('agent_status').select('*'),
-            client.from('events').select('*').order('created_at', { ascending:false }).order('id', { ascending:false }).limit(20)
+            client.from('events').select('*').order('created_at', { ascending:false }).order('id', { ascending:false }).limit(20),
+            client.from('tasks').select('*').order('created_at', { ascending:false }).order('id', { ascending:false }).limit(20)
           ]);
           if (current !== generation || !activeUser) return;
           if (results.some(r => r.error)) throw new Error('read failed');
-          [machines, statuses, events] = results.map(r => r.data || []);
+          [machines, statuses, events, tasks] = results.map(r => r.data || []);
           dataReady = true; message(''); render();
         } while (refreshPending && current === generation);
       } catch {
@@ -208,17 +418,21 @@
       if (user === activeUser) return;
       generation++; activeUser = user;
       if (channel) { void client.removeChannel(channel); channel = null; }
-      machines = []; statuses = []; events = []; dataReady = false;
+      machines = []; statuses = []; events = []; tasks = []; dataReady = false;
       $('cards').replaceChildren(); $('events').replaceChildren();
+      $('tasks').replaceChildren(); $('panel').hidden = !user;
       $('login').hidden = !!user; $('dashboard').hidden = !user;
       $('logout').hidden = !user; $('connection').hidden = !user;
-      message('');
+      message(''); $('config-message').hidden = true;
+      visibleSessions = new Set(); $('panel').open = false;
       if (!user) return;
       render();
       const current = generation;
       channel = client.channel(`agent-dashboard-${current}`)
         .on('postgres_changes', { event:'*', schema:'public', table:'agent_status' }, () => void refresh())
         .on('postgres_changes', { event:'*', schema:'public', table:'events' }, () => void refresh())
+        .on('postgres_changes', { event:'*', schema:'public', table:'tasks' }, () => void refresh())
+        .on('postgres_changes', { event:'*', schema:'public', table:'machines' }, () => void refresh())
         .subscribe(status => {
           if (current !== generation) return;
           $('connection').textContent = status === 'SUBSCRIBED' ? 'ライブ更新中' : '再接続中 · 30秒ごとに確認';
@@ -247,11 +461,55 @@
         await applySession(null);
       } catch { message('ログアウトできません。もう一度お試しください。', true); }
     });
+    function selectedPermissions() { return Array.from(document.querySelectorAll('.permissions input:checked')).map(el => el.value); }
+    function settingsChanged() {
+      $('model-label').hidden = $('engine').value === 'codex';
+      $('permission-summary').textContent = `許可：${permissionText(selectedPermissions())}`;
+      try { localStorage.setItem('dashboard-request',JSON.stringify({target:$('target').value,engine:$('engine').value,model:$('model').value,permissions:selectedPermissions()})); } catch {}
+    }
+    try {
+      const saved = JSON.parse(localStorage.getItem('dashboard-request') || 'null');
+      if (saved) {
+        for (const id of ['target','engine','model']) if (Array.from($(id).options).some(o => o.value === saved[id])) $(id).value = saved[id];
+        if (Array.isArray(saved.permissions)) for (const input of document.querySelectorAll('.permissions input:not(:disabled)')) input.checked = saved.permissions.includes(input.value);
+      }
+    } catch {}
+    settingsChanged();
+    $('request').addEventListener('change',settingsChanged);
+    $('prompt').addEventListener('input',() => { $('count').textContent = `${$('prompt').value.length} / 8000字`; });
+    for (const button of document.querySelectorAll('[data-domain]')) button.addEventListener('click',() => {
+      const prefix = `${button.dataset.domain}：`;
+      $('prompt').value = (prefix + $('prompt').value.replace(/^(kyoka|bunsho|web-page|web-app)：/,'')).slice(0,8000);
+      $('prompt').dispatchEvent(new Event('input')); $('prompt').focus();
+    });
+    $('prompt').addEventListener('keydown',event => {
+      if (event.ctrlKey && event.key === 'Enter') { event.preventDefault(); $('request').requestSubmit(); }
+    });
+    $('request').addEventListener('submit',async event => {
+      event.preventDefault(); if (!activeUser || !client || $('send').disabled) return;
+      const prompt = $('prompt').value.trim(); if (!prompt || prompt.length > 8000) return;
+      $('send').disabled = true; $('send-message').textContent = '';
+      const current = generation;
+      try {
+        settingsChanged();
+        const { error } = await client.from('tasks').insert({prompt,target:$('target').value,engine:$('engine').value,
+          model:$('engine').value === 'codex' ? 'auto' : $('model').value,permissions:selectedPermissions(),status:'queued'});
+        if (error) throw error;
+        if (current !== generation) return;
+        // 送信中に追記された本文を消さない。
+        if ($('prompt').value.trim() === prompt) { $('prompt').value = ''; $('prompt').dispatchEvent(new Event('input')); }
+        $('send-message').textContent = '依頼を受け付けました。'; void refresh();
+      } catch { if (current === generation) $('send-message').textContent = '送信できません。接続・tasks.sql の設定を確認してください。'; }
+      finally { $('send').disabled = false; }
+    });
+    function panelSpace() { document.querySelector('main').style.paddingBottom = `${$('panel').hidden ? 40 : $('panel').getBoundingClientRect().height + 30}px`; }
+    new ResizeObserver(panelSpace).observe($('panel'));
+    setInterval(() => { if (activeUser) render(); },10000);
     async function init() {
       $('login').hidden = false;
       if ([SUPABASE_URL, SUPABASE_ANON_KEY].some(v => v === 'REPLACE_ME')) {
         $('login').querySelector('button').disabled = true;
-        message('Supabase の URL と anon key を設定してください。'); return;
+        $('config-message').textContent = 'Supabase の URL と anon key を設定してください。'; $('config-message').hidden = false; return;
       }
       try {
         client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
