@@ -19,7 +19,8 @@
     button,summary { cursor:pointer; } button:hover { border-color:var(--blue); } button:disabled { opacity:.6; }
     input,textarea { width:100%; min-width:0; } textarea { resize:vertical; min-height:72px; }
     :focus-visible { outline:3px solid var(--blue); outline-offset:3px; } [hidden] { display:none !important; }
-    #login { max-width:430px; margin:70px auto 12px; } #login label { display:block; margin-bottom:8px; } #login button { margin-top:12px; width:100%; }
+    #login,#password-form { max-width:430px; margin:70px auto 12px; } #login label,#password-form label { display:block; margin:10px 0 6px; } #login input,#password-form input { width:100%; } #login button,#password-form button { margin-top:12px; width:100%; }
+    .secondary { background:transparent; border:1px solid var(--line); color:var(--muted,inherit); }
     #config-message { max-width:430px; margin:auto; color:var(--muted); }
     #message,.muted,.time,.empty { color:var(--muted); font-size:12px; } #message.error,.error { color:var(--red); }
     .cards { display:grid; gap:12px; }
@@ -80,11 +81,20 @@
 </head>
 <body>
   <main>
-    <header><h1>エージェント稼働状況</h1><div class="header-actions"><p id="connection" class="muted" hidden>接続中…</p><button id="logout" type="button" hidden>ログアウト</button></div></header>
+    <header><h1>エージェント稼働状況</h1><div class="header-actions"><p id="connection" class="muted" hidden>接続中…</p><button id="set-password" type="button" class="secondary" hidden>パスワード設定</button><button id="logout" type="button" hidden>ログアウト</button></div></header>
     <form id="login" hidden>
       <label for="email">メールアドレス</label>
-      <input id="email" type="email" autocomplete="email" placeholder="メールアドレス" required>
-      <button type="submit">ログインリンクを送信</button>
+      <input id="email" type="email" autocomplete="username" placeholder="メールアドレス" required>
+      <label for="password">パスワード</label>
+      <input id="password" type="password" autocomplete="current-password" placeholder="パスワード">
+      <button type="submit">ログイン</button>
+      <button type="button" id="send-link" class="secondary">パスワード未設定・忘れた：ログインリンクをメールで送る</button>
+    </form>
+    <form id="password-form" hidden>
+      <label for="new-password">新しいパスワード（8文字以上）</label>
+      <input id="new-password" type="password" autocomplete="new-password" minlength="8" required>
+      <button type="submit">パスワードを設定</button>
+      <button type="button" id="password-cancel" class="secondary">閉じる</button>
     </form>
     <p id="config-message" hidden></p>
     <p id="message" role="status" aria-live="polite"></p>
@@ -422,7 +432,7 @@
       $('cards').replaceChildren(); $('events').replaceChildren();
       $('tasks').replaceChildren(); $('panel').hidden = !user;
       $('login').hidden = !!user; $('dashboard').hidden = !user;
-      $('logout').hidden = !user; $('connection').hidden = !user;
+      $('logout').hidden = !user; $('set-password').hidden = !user; $('connection').hidden = !user; if (!user) $('password-form').hidden = true;
       message(''); $('config-message').hidden = true;
       visibleSessions = new Set(); $('panel').open = false;
       if (!user) return;
@@ -445,13 +455,43 @@
       if (!client) return;
       const email = $('email').value.trim();
       if (email.toLowerCase() !== OWNER_EMAIL) { message('閲覧を許可されたメールアドレスを入力してください。', true); return; }
-      const button = $('login').querySelector('button'); button.disabled = true;
+      const password = $('password').value;
+      if (!password) { message('パスワードを入力してください。未設定なら下のボタンでリンクを送れます。', true); return; }
+      const button = $('login').querySelector('button[type=submit]'); button.disabled = true;
+      try {
+        const { data, error } = await client.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        $('password').value = '';
+        await applySession(data.session);
+      } catch { message('メールアドレスかパスワードが違います。', true); }
+      finally { button.disabled = false; }
+    });
+    // 初回・パスワードを忘れたとき用：従来のログインリンク
+    $('send-link').addEventListener('click', async () => {
+      if (!client) return;
+      const email = $('email').value.trim();
+      if (email.toLowerCase() !== OWNER_EMAIL) { message('閲覧を許可されたメールアドレスを入力してください。', true); return; }
+      const button = $('send-link'); button.disabled = true;
       try {
         const redirect = new URL(location.href); redirect.hash = ''; redirect.search = '';
         const { error } = await client.auth.signInWithOtp({ email, options:{ emailRedirectTo:redirect.href } });
         if (error) throw error;
-        message('ログインリンクを送りました。この端末のブラウザで開いてください。');
-      } catch { message('リンクを送信できません。メール設定と送信制限を確認してください。', true); }
+        message('ログインリンクを送りました。ログイン後、右上の「パスワード設定」でパスワードを決めてください。');
+      } catch { message('リンクを送信できません。少し待ってから再度お試しください。', true); }
+      finally { button.disabled = false; }
+    });
+    $('set-password').addEventListener('click', () => { $('password-form').hidden = false; $('new-password').focus(); });
+    $('password-cancel').addEventListener('click', () => { $('password-form').hidden = true; });
+    $('password-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      if (!client) return;
+      const button = $('password-form').querySelector('button[type=submit]'); button.disabled = true;
+      try {
+        const { error } = await client.auth.updateUser({ password:$('new-password').value });
+        if (error) throw error;
+        $('new-password').value = ''; $('password-form').hidden = true;
+        message('パスワードを設定しました。次回からメールアドレスとパスワードでログインできます。');
+      } catch { message('パスワードを設定できませんでした。8文字以上で、推測されにくいものにしてください。', true); }
       finally { button.disabled = false; }
     });
     $('logout').addEventListener('click', async () => {
