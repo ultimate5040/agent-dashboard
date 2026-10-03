@@ -518,12 +518,23 @@
         await applySession(null);
       } catch { message('ログアウトできません。もう一度お試しください。', true); }
     });
+    // 宛先PCの受付係（worker）が3分以内に生存報告しているか
+    function workerAlive(machineId) {
+      return statuses.some(s => s.machine_id === machineId && s.session_key === 'worker' && Date.now() - Date.parse(s.last_seen) < 180000);
+    }
+    function workerWarning(target) {
+      const ids = target === 'any' ? machines.map(m => m.machine_id) : [target];
+      if (ids.some(workerAlive)) return '';
+      const label = target === 'any' ? 'どのPC' : (machines.find(m => m.machine_id === target)?.label || target);
+      return `ただし ${label} の受付係が動いていないため、起動するまで待機します（そのPCで node scripts/worker.js）。`;
+    }
     // 宛先の表示と、選ばれているキャラ群の強調
     function updateTargetLabel() {
       const target = $('target').value, engine = $('engine').value;
       const machine = machines.find(m => m.machine_id === target);
       const place = target === 'any' ? 'どちらでも' : (machine?.label || $('target').selectedOptions[0]?.textContent || target);
-      $('target-label').textContent = `宛先：${place} の ${engine === 'claude' ? 'Clawd' : 'Codex'}`;
+      const offline = target !== 'any' && machines.length && !workerAlive(target);
+      $('target-label').textContent = `宛先：${place} の ${engine === 'claude' ? 'Clawd' : 'Codex'}` + (offline ? '（受付係が停止中）' : '');
       const color = /^#[0-9a-f]{6}$/i.test(machine?.color || '') ? machine.color : '';
       $('panel').style.setProperty('--pick', color || 'var(--text)');
       for (const group of document.querySelectorAll('.agent-group')) {
@@ -583,7 +594,7 @@
         if (current !== generation) return;
         // 送信中に追記された本文を消さない。
         if ($('prompt').value.trim() === prompt) { $('prompt').value = ''; $('prompt').dispatchEvent(new Event('input')); }
-        $('send-message').textContent = '依頼を受け付けました。'; void refresh();
+        $('send-message').textContent = '依頼を受け付けました。' + workerWarning($('target').value); void refresh();
       } catch { if (current === generation) $('send-message').textContent = '送信できません。接続・tasks.sql の設定を確認してください。'; }
       finally { $('send').disabled = false; }
     });
