@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>エージェント稼働状況</title>
+  <title>タスク処理</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <style>
     :root { --bg:#f3f6fa; --card:#fff; --text:#17253a; --muted:#56657a; --line:#dce3ec; --green:#16834c; --blue:#2563eb; --yellow:#a96900; --red:#d12d3e; --gray:#7b8797; }
@@ -26,16 +26,7 @@
     #config-message { max-width:430px; margin:auto; color:var(--muted); }
     #message,.muted,.time,.empty { color:var(--muted); font-size:12px; } #message.error,.error { color:var(--red); }
     .cards { display:grid; gap:12px; }
-    .card { display:grid; grid-template-columns:115px minmax(0,1fr) 112px; align-items:center; gap:12px; background:var(--card); border:2px solid var(--line); border-radius:14px; padding:12px; min-width:0; }
-    .machine-name { display:flex; align-items:center; gap:6px; overflow-wrap:anywhere; font-size:14px; }
     .dot { width:8px; height:8px; border-radius:50%; background:currentColor; flex-shrink:0; }
-    .crew { display:flex; align-items:center; justify-content:space-around; gap:10px; min-width:0; }
-    .agent-group { min-width:0; text-align:center; flex:1; } .agent-name { font-size:11px; color:var(--muted); }
-    .clones { display:flex; align-items:flex-end; justify-content:center; padding-top:3px; }
-    .clone-stack { display:flex; align-items:flex-end; justify-content:center; width:min(100%,calc(76px + (var(--count) - 1) * 46px)); }
-    .agent { position:relative; flex:0 0 76px; width:76px; border:1px solid transparent; border-radius:8px; }
-    .agent + .agent { margin-left:calc((100% - 76px * var(--count)) / max(1,var(--count) - 1)); } .agent:nth-child(even) { top:5px; }
-    .agent:hover,.agent:focus-within { z-index:2; } .agent.new { animation:pop .35s ease-out; }
     .character { display:block; width:64px; height:64px; margin:auto; overflow:visible; }
     .body { transform-origin:80px 115px; animation:breathe 4s ease-in-out infinite; }
     .eyes { transform-origin:80px 65px; animation:eyes 7s infinite; }
@@ -47,14 +38,6 @@
     .waiting .hands { transform:translateY(-28px) rotate(-12deg); transform-origin:80px 100px; }
     .error .cross,.error .sweat,.offline .sleep { display:block; } .error .eyes,.offline .eyes { display:none; }
     .offline .character { filter:grayscale(1); opacity:.65; } .offline .body { transform:translateY(35px) scaleY(.65); animation:none; }
-    .bubble { position:relative; z-index:1; margin:0 0 2px; padding:2px 5px; width:max-content; max-width:105px; left:50%; transform:translateX(-50%); border:1px solid var(--line); border-radius:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; color:var(--text); background:var(--bg); }
-    .bubbles { display:flex; flex-direction:column; align-items:center; gap:2px; margin-bottom:3px; }
-    .bubbles .bubble { left:auto; transform:none; margin:0; max-width:100%; }
-    .agent-state { display:block; font-weight:600; } .bubble-text { display:block; overflow:hidden; text-overflow:ellipsis; }
-    .bubbles .bubble.running { border-color:var(--blue); } .bubbles .bubble.waiting { border-color:var(--yellow); } .bubbles .bubble.error { border-color:var(--red); }
-    .bubble.talk { border-color:var(--pc,#64748b); }
-    .recent-work { display:flex; flex-direction:column; gap:3px; margin-top:5px; min-width:0; }
-    .completed-bubble { display:block; width:100%; min-width:0; padding:2px 4px; border:1px solid var(--pc,#64748b); border-radius:9px; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .continuation { display:flex; align-items:center; gap:6px; margin:6px 0; min-width:0; }
     #continue-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border:1px solid var(--pick,var(--line)); border-radius:12px; padding:2px 8px; }
     .crew { align-items:flex-start; } .task-continuation { font-size:10px; white-space:nowrap; color:var(--muted); }
@@ -81,8 +64,6 @@
     #prompt { width:100%; min-height:84px; }
     .request-foot { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; margin-top:6px; } .request-foot #send { margin-left:auto; }
     .advanced { margin-top:6px; } .advanced summary { font-weight:400; font-size:13px; color:var(--muted); }
-    .agent-group { cursor:pointer; border-radius:10px; outline:2px solid transparent; transition:outline-color .15s; }
-    .agent-group:hover { outline-color:var(--line); } .agent-group.picked { outline-color:var(--pick,#3b82f6); background:#ffffff08; }
     .settings,.permissions,.chips { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; } .settings label { flex:1; min-width:95px; } .settings select { display:block; width:100%; }
     fieldset { border:0; padding:0; margin-top:10px; } legend { font-size:12px; }
     .permissions label { position:relative; border:1px solid var(--line); border-radius:20px; padding:3px 9px; font-size:12px; cursor:pointer; }
@@ -97,19 +78,105 @@
       main { padding:16px 8px 80px; } header { flex-wrap:wrap; gap:8px; } .header-actions { flex-wrap:wrap; gap:6px; }
       button,input,select,summary,.permissions label { min-height:44px; } button { min-width:44px; } .permissions label { display:inline-flex; align-items:center; }
       #connection,#message,.muted,.time,.empty,.agent-name,.bubble,.completed-bubble,.overflow,.limit-label,.limit-hint,.limit-reset,.worker-state,.status,.task-meta,.task-continuation,.advanced summary,legend,.permissions label,pre { font-size:14px; }
-      .card { grid-template-columns:minmax(0,1fr) minmax(180px,1.6fr); grid-template-areas:'machine limits' 'crew crew'; gap:12px; padding:12px; }
-      .machine-info { grid-area:machine; } .limits { grid-area:limits; } .crew { grid-area:crew; gap:12px; padding-top:10px; border-top:1px solid var(--line); }
-      .machine-name { font-size:14px; } .character { width:56px; height:56px; } .agent { flex-basis:58px; width:58px; }
-      .bubble { width:100%; max-width:100%; } .limit > summary { padding:3px 0; } .limit-label { gap:2px 6px; }
       .task > summary { flex-wrap:wrap; padding:8px; gap:5px; } .task-prompt { flex-basis:calc(100% - 80px); } .task-meta { white-space:normal; }
-      .clone-stack { width:min(100%,calc(58px + (var(--count) - 1) * 8px)); } .agent + .agent { margin-left:calc((100% - 58px * var(--count)) / max(1,var(--count) - 1)); }
     }
-    @media(prefers-reduced-motion:reduce) { *, *:before, *:after { animation:none !important; transition:none !important; } }
+    /* S1: one shared workplace. Furniture occupies .scene only; labels stay outside it. */
+    :root { --bg:#f6f4ec; --text:#203b33; --card:#fffdf7; --line:#c8d2c7; --floor:#dce5d2; --tile:#bacbb04d; --wood:#c5a578; --wood-edge:#9f8159; --sofa:#8bac80; --wall:#aebf9f; }
+    @media(prefers-color-scheme:dark) { :root { --bg:#17251f; --text:#e5eedc; --card:#26382d; --line:#485d4b; --floor:#30402e; --tile:#96af6c25; --wood:#8e7757; --wood-edge:#6b583f; --sofa:#607b53; --wall:#5a7052; } }
+    :root { --request-bar-height:calc(44px + env(safe-area-inset-bottom,0px)); }
+    main { max-width:900px; padding-top:14px; padding-bottom:var(--request-bar-height); }
+    header { flex-wrap:nowrap; margin-bottom:10px; gap:8px; }
+    header h1 { font-size:20px; white-space:nowrap; }
+    .header-actions { flex-wrap:nowrap; gap:8px; }
+    .account-menu { position:relative; }
+    .account-menu > summary { list-style:none; padding:8px; min-width:44px; text-align:center; }
+    .account-menu > summary::-webkit-details-marker { display:none; }
+    .account-menu .menu-items { position:absolute; right:0; top:100%; z-index:30; width:180px; padding:8px; background:var(--card); border:1px solid var(--line); border-radius:8px; box-shadow:0 4px 14px #0003; }
+    .menu-items button { width:100%; margin:3px 0; }
+    #message:empty,.fetch-status:has(#fetch-status:empty):has(#retry[hidden]) { display:none; }
+    .tabs { display:flex; gap:8px; margin-bottom:10px; }
+    .tabs button { flex:1; min-height:44px; }
+    .tabs [aria-selected="true"] { background:var(--text); color:var(--card); font-weight:700; }
+    .quotas { display:flex; align-items:center; justify-content:space-between; gap:4px; border-bottom:1px solid var(--line); padding-bottom:6px; margin-bottom:6px; white-space:nowrap; }
+    .quota-group { display:flex; align-items:center; gap:4px; min-width:0; font-size:12px; }
+    .quota-group + .quota-group { border-left:1px solid var(--line); padding-left:4px; }
+    .quotas .limit { position:relative; margin:0; }
+    .quotas .limit > summary { display:flex; align-items:center; gap:3px; min-height:44px; font-size:12px; }
+    .quotas .track { width:12px; height:8px; }
+    .quotas .quota-value { font-variant-numeric:tabular-nums; }
+    .quota-breakdown { position:absolute; top:100%; left:0; width:250px; max-width:calc(100vw - 32px); padding:10px; background:var(--card); border:1px solid var(--line); border-radius:8px; box-shadow:0 4px 14px #0003; z-index:10; }
+    .quota-group:last-child .quota-breakdown { left:auto; right:0; }
+    .quota-breakdown p { margin:4px 0; font-size:12px; overflow-wrap:anywhere; }
+    .office-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .office-heading h2 { font-size:15px; }
+    .floor { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:8px; padding:12px 8px; background-color:var(--floor); background-image:linear-gradient(var(--tile) 1px,transparent 1px),linear-gradient(90deg,var(--tile) 1px,transparent 1px); background-size:24px 24px; box-shadow:inset 0 4px var(--wall); }
+    .work-island,.lounge,.shelf,.reception { min-width:0; }
+    .work-island { background:color-mix(in srgb,var(--floor) 65%,var(--card)); border-inline:2px solid var(--wall); padding:6px; }
+    .zone-title { font-size:12px; color:var(--muted); margin:0 0 6px; }
+    .work-seats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 4px; align-items:start; }
+    .office-side { display:flex; flex-direction:column; gap:12px; min-width:0; }
+    .rest-seats { display:grid; gap:10px; }
+    .idle .sleep { display:block; }
+    .idle .eyes { display:none; }
+    .absence { grid-column:1/-1; font-size:12px; color:var(--muted); opacity:.65; margin:0; }
+    .seat { min-width:0; text-align:center; color:var(--text); }
+    .seat .bubble { display:block; position:static; transform:none; width:100%; max-width:100%; min-width:0; padding:4px; min-height:44px; margin:0; border-radius:8px; background:var(--card); font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .scene { position:relative; height:108px; }
+    .character-pick { position:absolute; top:0; left:50%; transform:translateX(-50%); z-index:2; padding:0; border:0; background:transparent; width:76px; height:76px; }
+    .seat .character { width:68px; height:68px; }
+    .seat.picked { outline:none; background:transparent; }
+    .seat.picked .character-pick { outline:2px solid var(--blue); border-radius:12px; }
+    .seat .character-pick:focus-visible { outline:3px solid var(--blue); outline-offset:3px; border-radius:12px; }
+    .scarf { stroke:var(--card); stroke-width:2; shape-rendering:crispEdges; }
+    .sprite { display:block; pointer-events:none; }
+    .sprite.sprite-image { background:none; border:0; box-shadow:none; }
+    .sprite-image:before,.sprite-image:after { display:none; }
+    .sprite-claude,.sprite-codex { position:relative; width:68px; height:68px; margin:auto; }
+    .scarf-art { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+    .sprite-desk { position:absolute; top:56px; left:50%; transform:translateX(-50%); width:82px; height:30px; background:var(--wood); border-bottom:6px solid var(--wood-edge); border-radius:2px; z-index:3; box-shadow:3px 5px #0002; }
+    .sprite-desk:before,.sprite-desk:after { content:''; position:absolute; width:4px; height:12px; background:var(--wood-edge); top:30px; }
+    .sprite-desk:before { left:4px; } .sprite-desk:after { right:4px; }
+    .monitor { position:absolute; left:30px; top:-15px; width:24px; height:19px; background:#244841; border:3px solid #d9f0d7; }
+    .desk-keys { position:absolute; left:28px; top:13px; width:24px; height:6px; background:repeating-linear-gradient(90deg,var(--card) 0 3px,var(--wood-edge) 3px 4px); }
+    .sprite-sofa { position:absolute; top:70px; left:50%; transform:translateX(-50%); width:82px; height:25px; background:var(--sofa); border:4px solid var(--wall); border-radius:6px; }
+    .sprite-shelf { height:14px; background:var(--wood); border-bottom:5px solid var(--wood-edge); }
+    .sprite-counter { height:22px; background:var(--wood); border-bottom:6px solid var(--wood-edge); }
+    .sprite-plant { width:20px; height:26px; margin:6px auto; background:var(--wood-edge); border-top:18px solid var(--green); border-radius:12px 12px 3px 3px; }
+    .seat .agent-state { display:block; width:fit-content; max-width:100%; margin:2px auto; padding:2px 5px; font-size:14px; font-weight:600; border-radius:5px; background:var(--card); }
+    .elapsed { display:block; font-size:12px; color:var(--muted); }
+    .seat.waiting { border:0; animation:none; }
+    .shelf-ticket,.queue-ticket { min-width:0; }
+    .shelf-ticket { background:var(--card); margin:4px 0; border:1px solid var(--line); }
+    .shelf-ticket > summary { padding:6px 4px; font-size:14px; overflow-wrap:anywhere; }
+    .shelf-ticket .task-content { padding:4px; }
+    .shelf-ticket button { width:100%; padding:4px; font-size:14px; white-space:normal; }
+    .shelf-ticket pre { font-size:14px; }
+    .reception { grid-column:1/-1; border-top:1px solid var(--wall); padding-top:8px; }
+    .queue { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+    .queue-ticket { flex:1 1 120px; background:var(--card); }
+    .queue-ticket > summary { padding:6px; overflow-wrap:anywhere; font-size:14px; }
+    .worker-summary { font-size:12px; color:var(--muted); margin:5px 0; overflow-wrap:anywhere; }
+    .progress-panel { margin-top:6px; padding:8px; background:var(--card); border:1px solid var(--line); border-radius:8px; text-align:left; overflow-wrap:anywhere; }
+    .progress-panel p,.progress-panel li { font-size:14px; white-space:pre-wrap; margin:4px 0; }
+    .progress-panel ol { margin:0; padding-left:18px; }
+    .request-bar { position:fixed; bottom:0; left:50%; transform:translateX(-50%); z-index:21; width:100%; max-width:900px; height:var(--request-bar-height); border-radius:12px 12px 0 0; padding:0 8px env(safe-area-inset-bottom,0px); box-shadow:0 -2px 12px #0002; font-weight:600; }
+    .panel { position:fixed; bottom:var(--request-bar-height); left:50%; transform:translateX(-50%); width:calc(100% - 16px); max-width:884px; margin:0; z-index:20; max-height:min(75dvh,calc(100dvh - var(--request-bar-height) - 20px)); overflow:auto; box-shadow:0 -2px 12px #0002; }
+    .panel .request-head { font-size:12px; } #prompt { min-height:60px; }
+    .request-foot #send { width:auto; }
+    #management-panel { min-height:240px; padding:40px 16px; text-align:center; background:var(--card); }
+    @media(max-width:600px) {
+      .floor { gap:6px; padding:10px 4px; } .work-island { padding:4px 2px; }
+      .quotas .limit-hint { font-size:11px; line-height:1.3; } .quota-breakdown p { font-size:14px; }
+      .sprite-desk,.sprite-sofa { width:74px; } .monitor { left:25px; } .desk-keys { left:24px; }
+      .panel { padding:8px; } .chips { margin:4px 0; } .chips button { padding:4px 7px; }
+      .settings label { min-width:90px; }
+    }
+    @media(prefers-reduced-motion:reduce) { *, *:before, *:after { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
   </style>
 </head>
 <body>
   <main>
-    <header><h1>エージェント稼働状況</h1><div class="header-actions"><p id="connection" class="muted" data-state="reconnecting" role="status" hidden>再接続中</p><button id="set-password" type="button" class="secondary" hidden>パスワード設定</button><button id="logout" type="button" hidden>ログアウト</button></div></header>
+    <header><h1>タスク処理</h1><div class="header-actions"><p id="connection" class="muted" data-state="reconnecting" role="status" hidden>再接続中</p><details id="account-menu" class="account-menu" hidden><summary aria-label="メニュー">☰</summary><div class="menu-items"><button id="set-password" type="button" class="secondary" hidden>パスワード設定</button><button id="logout" type="button" hidden>ログアウト</button></div></details></div></header>
     <form id="login" hidden>
       <label for="email">メールアドレス</label>
       <input id="email" type="email" autocomplete="username" placeholder="メールアドレス" required>
@@ -128,7 +195,16 @@
     <p id="message" role="status" aria-live="polite"></p>
     <section id="dashboard" hidden aria-label="稼働ダッシュボード">
       <div class="fetch-status"><p id="fetch-status" role="status" aria-live="polite"></p><button id="retry" type="button" hidden>再取得</button></div>
+      <nav class="tabs" role="tablist" aria-label="画面切替">
+        <button id="processing-tab" type="button" role="tab" aria-selected="true" aria-controls="processing-panel">タスク処理</button>
+        <button id="management-tab" type="button" role="tab" aria-selected="false" aria-controls="management-panel" tabindex="-1">タスク管理</button>
+      </nav>
+      <section id="management-panel" role="tabpanel" aria-labelledby="management-tab" hidden><h2>準備中</h2></section>
+      <section id="processing-panel" role="tabpanel" aria-labelledby="processing-tab">
       <div id="cards" class="cards"></div>
+      <section aria-label="依頼一覧"><h2 style="margin-top:24px">依頼一覧</h2><div id="tasks"></div></section>
+      <details class="timeline"><summary>直近のイベント</summary><ol id="events"></ol></details>
+      <button id="request-toggle" class="request-bar" type="button" aria-expanded="false" aria-controls="panel" hidden>＋ 依頼を追加</button>
       <section id="panel" class="panel" hidden aria-label="キャラクターに指示する">
         <form id="request">
           <div class="request-head">
@@ -136,8 +212,8 @@
             <span class="muted">キャラをタップすると宛先が変わります</span>
           </div>
           <div class="chips" aria-label="領域">
-            <button type="button" data-domain="kyoka">kyoka</button><button type="button" data-domain="bunsho">bunsho</button>
-            <button type="button" data-domain="web-page">web-page</button><button type="button" data-domain="web-app">web-app</button>
+            <button type="button" data-domain="kyoka">教科</button><button type="button" data-domain="bunsho">分掌</button>
+            <button type="button" data-domain="web-page">HP</button><button type="button" data-domain="web-app">アプリ</button>
           </div>
           <div id="continuation" class="continuation" hidden><span id="continue-label"></span><button id="continue-cancel" type="button" aria-label="続きモードを解除">✕</button></div>
           <textarea id="prompt" maxlength="8000" required aria-label="依頼内容" placeholder="お願いしたいことを入力…（生徒の個人情報は書かない）"></textarea>
@@ -165,8 +241,7 @@
           </details>
         </form>
       </section>
-      <section aria-label="依頼一覧"><h2 style="margin-top:24px">依頼一覧</h2><div id="tasks"></div></section>
-      <details class="timeline"><summary>直近のイベント</summary><ol id="events"></ol></details>
+      </section>
     </section>
   </main>
   <script>
@@ -180,7 +255,7 @@
     let machines = [], statuses = [], events = [], tasks = [], refreshPending = false, refreshing = false;
     let dataReady = false;
     let lastFetchedAt = null, fetchFailed = false, realtimeStatus = 'CLOSED';
-    let recentTasks = [], parentTasks = [], continuation = null;
+    let recentTasks = [], queuedTasks = [], parentTasks = [], continuation = null;
     const permissionNames = { read:'読み取り', edit:'編集', publish:'保存', git:'commit・push', codex:'Codex委任', web:'Web検索' };
     const taskNames = { queued:'待機中', running:'実行中', done:'完了', error:'エラー', canceled:'取消' };
     const speeches = { claude:['次は何をしましょう？','授業準備、手伝いますよ','獅子児祭の資料まとめましょうか？'], codex:['実装ならまかせて！','面倒な変換もお手伝い！','次のアプリを作りましょう！'] };
@@ -269,15 +344,14 @@
     }
     // SESSION HELPERS START: DOM に依存しない表示規則。
     function displaySessions(rows, now = Date.now()) {
-      const live = rows.filter(row => Number.isFinite(Date.parse(row.last_seen)) && now - Date.parse(row.last_seen) <= 600000 && row.state !== 'offline');
-      const active = live.filter(row => row.session_key !== 'worker' && ['running','waiting','error'].includes(row.state));
-      if (active.length >= 2) {
-        const sorted = [...active].sort((a,b) => ({running:0,waiting:1,error:2}[a.state] - {running:0,waiting:1,error:2}[b.state]) || String(a.session_key).localeCompare(String(b.session_key)));
-        return { rows:sorted.slice(0,6), extra:Math.max(0,sorted.length - 6) };
-      }
-      if (active.length === 1) return { rows:[active[0]], extra:0 };
-      const idle = live.find(row => row.session_key !== 'worker') || live[0];
-      return { rows:[idle ? {...idle,state:'idle'} : {state:'offline',session_key:'offline'}], extra:0 };
+      const conversations = rows.filter(row => row.session_key !== 'worker');
+      const present = conversations.filter(row => row.state === 'error' ||
+        (['running','waiting','idle'].includes(row.state) && Number.isFinite(Date.parse(row.last_seen)) && now - Date.parse(row.last_seen) <= 600000));
+      const active = present.filter(row => row.state !== 'idle').sort((a,b) =>
+        ({running:0,waiting:1,error:2}[a.state] - {running:0,waiting:1,error:2}[b.state]) || String(a.session_key).localeCompare(String(b.session_key)));
+      const idle = present.filter(row => row.state === 'idle');
+      return { rows:[...active.slice(0,6),...idle.slice(0,6)], extra:Math.max(0,active.length - 6),
+        restExtra:Math.max(0,idle.length - 6), absent:conversations.length - present.length };
     }
     // エンジン自動判断：機械的な実装・集計はCodex、文書・物理・相談はClaude。Claudeの5h残量が少ないときもCodexへ。
     function pickEngine(prompt, claudeLeft) {
@@ -338,7 +412,10 @@
     }
     function runningTask(row, candidates, machineId, agent) {
       const running = candidates.filter(t => t.status === 'running' && t.claimed_by === machineId && t.engine === agent);
-      return running.find(t => row.session_key === 'task-' + t.id) || (row.session_key?.startsWith('task-') ? null : running[0]);
+      // Only explicit task/session IDs establish a relationship; PC + engine is ambiguous.
+      return running.find(t => row.session_key === 'task-' + t.id) ||
+        (row.session_key?.startsWith('task-') ? null : running.find(t =>
+          (t.session_id && row.session_key === t.session_id) || (t.resume_session && row.session_key === t.resume_session))) || null;
     }
     function completedTasks(rows, machineId, agent, now = Date.now()) {
       return rows.filter(t => t.claimed_by === machineId && t.engine === agent && ['done','error'].includes(t.status) && t.session_id && now - Date.parse(t.finished_at) >= 0 && now - Date.parse(t.finished_at) <= 86400000)
@@ -350,104 +427,205 @@
     }
     // SESSION HELPERS END
     let visibleSessions = new Set();
+    const openedProgress = new Set();
+    function setRequestOpen(open) {
+      $('panel').hidden = !open;
+      $('request-toggle').setAttribute('aria-expanded',String(open));
+      $('request-toggle').textContent = open ? '✕ 依頼を閉じる' : '＋ 依頼を追加';
+    }
+    $('request-toggle').addEventListener('click',() => {
+      setRequestOpen($('panel').hidden);
+      if (!$('panel').hidden) $('prompt').focus();
+    });
+    for (const id of ['panel','request-toggle']) $(id).addEventListener('keydown',event => {
+      if (event.key === 'Escape' && !$('panel').hidden) {
+        event.preventDefault(); setRequestOpen(false); $('request-toggle').focus();
+      }
+    });
+    setRequestOpen(false);
+    function selectTab(name) {
+      for (const tab of ['processing','management']) {
+        const selected = tab === name;
+        $(tab + '-panel').hidden = !selected;
+        $(tab + '-tab').setAttribute('aria-selected',String(selected));
+        $(tab + '-tab').tabIndex = selected ? 0 : -1;
+      }
+    }
+    for (const name of ['processing','management']) {
+      $(name + '-tab').addEventListener('click',() => selectTab(name));
+      $(name + '-tab').addEventListener('keydown',event => {
+        if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === 'Home' ? 'processing' : event.key === 'End' ? 'management' : name === 'processing' ? 'management' : 'processing';
+        selectTab(next); $(next + '-tab').focus();
+      });
+    }
+    // One artwork entry point. Register local PNG filenames here for individual replacements.
+    const spriteAssets = {};
+    function sprite(name, opts = {}) {
+      const root = element('span','sprite sprite-' + name);
+      root.setAttribute('aria-hidden','true');
+      if (spriteAssets[name]) {
+        root.classList.add('sprite-image');
+        const img = element('img'); img.src = 'sprites/' + spriteAssets[name]; img.alt = '';
+        img.style.width = img.style.height = '100%'; img.style.objectFit = 'contain';
+        root.append(img);
+      } else if (['claude','codex'].includes(name)) root.append(character(name));
+      else if (name === 'desk') root.append(element('span','monitor'),element('span','desk-keys'));
+      // Keep the scarf separate so PNG characters still show machines.color.
+      if (['claude','codex'].includes(name)) {
+        const ns = 'http://www.w3.org/2000/svg';
+        const scarfArt = document.createElementNS(ns,'svg');
+        scarfArt.setAttribute('viewBox','0 0 160 150'); scarfArt.setAttribute('class','scarf-art');
+        const scarf = document.createElementNS(ns,'path'); scarf.setAttribute('class','scarf');
+        scarf.setAttribute('d',name === 'claude' ? 'M33 100 H127 V110 H120 V128 H108 V110 H33 Z' : 'M56 96 H104 V106 H101 V124 H89 V106 H56 Z');
+        scarf.setAttribute('fill',/^#[0-9a-f]{6}$/i.test(opts.color || '') ? opts.color : '#64748b');
+        scarfArt.append(scarf); root.append(scarfArt);
+      }
+      return root;
+    }
+    function allTaskRows() { return [...new Map([...recentTasks,...queuedTasks,...tasks].map(t => [t.id,t])).values()]; }
+    function deliveryTasks(rows, now = Date.now()) {
+      return rows.filter(t => ['done','error'].includes(t.status) && now - Date.parse(t.finished_at) >= 0 && now - Date.parse(t.finished_at) <= 86400000)
+        .sort((a,b) => Date.parse(b.finished_at) - Date.parse(a.finished_at));
+    }
+    function elapsedLabel(task, row = {}) {
+      const start = Date.parse(task?.started_at || task?.created_at || row.last_seen);
+      const end = Date.parse(task?.finished_at) || Date.now();
+      if (!Number.isFinite(start)) return '経過：未受信';
+      const seconds = Math.max(0,Math.floor((end - start)/1000));
+      return '経過：' + (seconds < 60 ? seconds + '秒' : Math.floor(seconds/60) + '分');
+    }
+    function progressPanel(row, task, key) {
+      const panel = element('section','progress-panel'); panel.id = 'progress-' + encodeURIComponent(key);
+      panel.setAttribute('aria-label','会話の経過');
+      panel.append(element('p','','依頼：' + (task?.prompt || row.detail || '依頼文は未受信')),element('p','',elapsedLabel(task,row)));
+      if (row.detail) panel.append(element('p','','いま：' + row.detail));
+      // Existing events have no session key: clearly label the PC/engine fallback.
+      const related = events.filter(e => e.machine_id === row.machine_id && e.agent === row.agent &&
+        (!e.session_key || e.session_key === row.session_key) && (!task || Date.parse(e.created_at) >= Date.parse(task.started_at || task.created_at)))
+        .sort((a,b) => Date.parse(b.created_at) - Date.parse(a.created_at)).slice(0,5);
+      panel.append(element('p','muted',related.some(e => !e.session_key) ? '直近の出来事（同じPC・エンジン。会話別IDは未記録）' : '直近の出来事'));
+      const list = element('ol');
+      for (const event of related) list.append(element('li','',relative(event.created_at) + ' ' + (stateNames[event.state] || event.state) + (event.detail ? '：' + event.detail : '')));
+      if (!related.length) list.append(element('li','muted','出来事はまだありません。'));
+      panel.append(list); return panel;
+    }
+    function resultTicket(task, className, opened) {
+      const card = element('details',className); card.dataset.task = task.id; card.open = opened.has(task.id);
+      card.append(element('summary','',(task.status === 'done' ? '✓ ' : task.status === 'error' ? '⚠ ' : '受付 ') + shortText(task.prompt,20)));
+      const content = element('div','task-content');
+      content.append(element('p','',task.prompt),element('p','muted',(taskNames[task.status] || task.status) + ' · ' + taskTargetLabel(task,machines)));
+      if (task.result != null) content.append(element('pre','',task.result));
+      if (['done','error'].includes(task.status) && task.session_id) {
+        const button = element('button','','続けて依頼'); button.type = 'button'; button.dataset.continue = task.id; content.append(button);
+      } else if (['done','error'].includes(task.status)) content.append(element('p','muted','会話ID未取得のため続きは利用できません。'));
+      card.append(content); return card;
+    }
+    function renderOffice() {
+      const openedLimits = new Set(Array.from($('cards').querySelectorAll('.limit[open]')).map(d => d.dataset.limit));
+      const openedTickets = new Set(Array.from($('cards').querySelectorAll('details[data-task][open]')).map(d => d.dataset.task));
+      const fragment = document.createDocumentFragment(), quotas = element('div','quotas');
+      quotas.setAttribute('aria-label','Claude・Codexの残量');
+      for (const agent of ['claude','codex']) {
+        const group = element('div','quota-group'); group.append(element('span','',agent === 'claude' ? 'Claude' : 'Codex'));
+        const pcValues = machines.map(machine => ({machine,values:latestLimits(statuses.filter(r => r.machine_id === machine.machine_id && r.agent === agent))}));
+        for (const [period,caption] of [['five_hour','5h'],['seven_day','週']]) {
+          const key = agent + '-' + period;
+          const known = pcValues.filter(p => limitDisplay(p.values[period + '_used'],p.values[period + '_last_seen']).left != null);
+          const strictest = known.sort((a,b) => Number(b.values[period + '_used']) - Number(a.values[period + '_used']))[0]?.values || {};
+          const bar = limitBar(caption,strictest[period + '_used'],key);
+          bar.children[0].setAttribute('aria-label',(agent === 'claude' ? 'Claude' : 'Codex') + ' ' + caption + ' 残量の内訳');
+          bar.open = openedLimits.has(key);
+          const breakdown = element('div','quota-breakdown');
+          const overall = limitDisplay(strictest[period + '_used'],strictest[period + '_last_seen']);
+          breakdown.append(element('p','','全体：' + overall.text + (overall.freshness ? ' / 報告 ' + overall.freshness : '')));
+          breakdown.append(element('p','',resetLabel(strictest[period + '_resets_at']) || 'リセット日時：未取得'));
+          for (const {machine,values} of pcValues) {
+            const view = limitDisplay(values[period + '_used'],values[period + '_last_seen']);
+            breakdown.append(element('p','',(machine.label || machine.machine_id) + '：' + view.text + (view.freshness ? ' / 報告 ' + view.freshness : '') + ' / ' + (resetLabel(values[period + '_resets_at']) || 'リセット日時：未取得')));
+          }
+          if (!pcValues.length) breakdown.append(element('p','','端末からの報告を待っています。'));
+          bar.append(breakdown); group.append(bar);
+        }
+        quotas.append(group);
+      }
+      fragment.append(quotas);
+      const heading = element('div','office-heading');
+      heading.append(element('p','worker-summary',machines.map(m => (m.label || m.machine_id) + ' 受付係：' + (workerAlive(m.machine_id) ? '稼働中' : '停止中')).join(' / ')));
+      fragment.append(heading);
+      const floor = element('div','floor'), work = element('section','work-island'), desks = element('div','work-seats');
+      work.setAttribute('aria-label','作業机の島'); work.append(element('h3','zone-title','作業机の島'),desks);
+      const side = element('div','office-side'), lounge = element('section','lounge'), rest = element('div','rest-seats');
+      lounge.setAttribute('aria-label','休憩ラウンジ'); lounge.append(element('h3','zone-title','休憩ラウンジ'),rest);
+      const nextSessions = new Set();
+      const assignedTasks = new Set();
+      const absence = element('p','absence');
+      for (const machine of machines) for (const agent of ['claude','codex']) {
+        const selection = displaySessions(statuses.filter(r => r.machine_id === machine.machine_id && r.agent === agent));
+        for (const selected of selection.rows) {
+          const row = {...selected,machine_id:machine.machine_id,agent};
+          const state = stateNames[row.state] ? row.state : 'offline';
+          const key = JSON.stringify([machine.machine_id,agent,row.session_key || 'main']); nextSessions.add(key);
+          const seat = element('div','seat agent-group ' + state); seat.dataset.machine = machine.machine_id; seat.dataset.agent = agent; seat.dataset.label = machine.label || machine.machine_id;
+          const matchedTask = runningTask(row,tasks,machine.machine_id,agent);
+          const task = matchedTask && !assignedTasks.has(matchedTask.id) ? matchedTask : null;
+          if (task) assignedTasks.add(task.id);
+          const speech = row.detail || task?.prompt || (state === 'idle' ? idleLine(agent) : stateNames[state]);
+          const bubble = element('button','bubble',shortText(speech,20)); bubble.type = 'button'; bubble.title = speech; bubble.dataset.progress = key;
+          bubble.setAttribute('aria-expanded',String(openedProgress.has(key))); bubble.setAttribute('aria-controls','progress-' + encodeURIComponent(key));
+          const scene = element('div','scene');
+          const pick = element('button','character-pick'); pick.type = 'button'; pick.dataset.pick = 'true';
+          pick.setAttribute('aria-label',(agent === 'claude' ? 'Clawd' : 'Codex') + '、' + (machine.label || machine.machine_id) + '、' + stateNames[state] + '。新しい依頼の宛先にする');
+          pick.append(sprite(agent,{color:machine.color})); scene.append(pick,sprite(state === 'idle' ? 'sofa' : 'desk'));
+          const stale = state === 'error' && Date.now() - Date.parse(row.last_seen) >= 1800000;
+          seat.append(bubble,scene,element('span','agent-state ' + state,stateNames[state] + (stale ? ' · 古い' : '')),element('span','elapsed',elapsedLabel(task,row)));
+          if (openedProgress.has(key)) seat.append(progressPanel(row,task,key));
+          (state === 'idle' ? rest : desks).append(seat);
+        }
+        if (selection.extra) desks.append(element('p','muted','ほか ' + selection.extra + '件の作業'));
+        if (selection.restExtra) rest.append(element('p','muted','ほか ' + selection.restExtra + '件の待機'));
+        if (selection.absent) absence.append(element('span','',(machine.label || machine.machine_id) + ' ' + (agent === 'claude' ? 'Claude' : 'Codex') + ' 不在 ' + selection.absent + '件 '));
+      }
+      visibleSessions = nextSessions;
+      if (!machines.length) desks.append(element('p','empty',dataReady ? '端末からの報告を待っています。' : '読み込み中…'));
+      const shelf = element('section','shelf'); shelf.setAttribute('aria-label','納品棚'); shelf.append(element('h3','zone-title','納品棚（24時間以内）'));
+      const deliveries = deliveryTasks(allTaskRows());
+      for (const task of deliveries) shelf.append(resultTicket(task,'shelf-ticket',openedTickets));
+      if (!deliveries.length) shelf.append(element('p','empty','納品待ち'));
+      shelf.append(sprite('shelf')); side.append(lounge,sprite('plant'),shelf);
+      const reception = element('section','reception'); reception.setAttribute('aria-label','受付カウンター');
+      const queued = allTaskRows().filter(t => t.status === 'queued');
+      reception.append(element('h3','zone-title','受付カウンター · ' + queued.length + '件待ち'),sprite('counter'));
+      const queue = element('div','queue'); for (const task of queued) queue.append(resultTicket(task,'queue-ticket',openedTickets));
+      if (!queued.length) queue.append(element('p','empty','受付の列は空いています。'));
+      reception.append(queue); floor.append(work,side);
+      if (absence.children.length) floor.append(absence);
+      floor.append(reception); fragment.append(floor);
+      $('cards').replaceChildren(fragment); updateTargetLabel();
+    }
     function updateConnection() {
       const view = connectionDisplay(realtimeStatus,fetchFailed);
       $('connection').textContent = view.text; $('connection').dataset.state = view.state;
     }
-    function limitBar(label, used, reset, reportedAt, key) {
-      const view = limitDisplay(used,reportedAt);
-      const box = element('details','limit' + (view.stale ? ' stale' : '')); box.dataset.limit = key;
+    function limitBar(label, used, key) {
+      const view = limitDisplay(used,null);
+      const box = element('details','limit'); box.dataset.limit = key;
       const summary = element('summary');
-      const heading = element('div','limit-label');
-      heading.append(element('span','',label),element('span','',view.text));
-      summary.append(heading);
-      summary.append(element('span','limit-hint',(view.freshness ? '報告 ' + view.freshness + ' · ' : '') + 'リセット日時 ▾'));
-      box.append(summary,element('p','limit-reset',resetLabel(reset) || 'リセット日時：未取得'));
-      if (view.left == null) return box;
+      summary.append(element('span','',label));
       const track = element('div','track');
       track.setAttribute('role','progressbar'); track.setAttribute('aria-label',label + 'の残り');
-      track.setAttribute('aria-valuemin','0'); track.setAttribute('aria-valuemax','100'); track.setAttribute('aria-valuenow',String(view.left));
-      const fill = element('div','fill'); fill.style.width = view.left + '%';
+      track.setAttribute('aria-valuemin','0'); track.setAttribute('aria-valuemax','100');
+      if (view.left != null) track.setAttribute('aria-valuenow',String(view.left));
+      else track.setAttribute('aria-valuetext','未取得');
+      const fill = element('div','fill'); fill.style.width = (view.left ?? 0) + '%';
       fill.style.background = view.left >= 40 ? 'var(--green)' : view.left >= 15 ? 'var(--yellow)' : 'var(--red)';
-      track.append(fill); summary.append(track); return box;
+      track.append(fill); summary.append(track,element('span','quota-value',view.left == null ? '未取得' : Math.round(view.left) + '%'));
+      box.append(summary); return box;
     }
     function render() {
       if (!activeUser) return;
-      const openedLimits = new Set(Array.from($('cards').querySelectorAll('.limit[open]')).map(d => d.dataset.limit));
-      const cards = document.createDocumentFragment(), nextSessions = new Set();
-      for (const machine of machines) {
-        const card = element('article','card');
-        const color = /^#[0-9a-f]{6}$/i.test(machine.color || '') ? machine.color : '#64748b';
-        const rows = statuses.filter(s => s.machine_id === machine.machine_id);
-        const name = element('h2','machine-name');
-        const dot = element('span','dot'); dot.style.color = color; dot.setAttribute('aria-hidden','true');
-        name.append(dot,document.createTextNode(machine.label || machine.machine_id));
-        if (rows.some(row => row.state === 'waiting' && Date.now() - Date.parse(row.last_seen) <= 600000)) {
-          card.classList.add('machine-waiting');
-          const attention = element('span','waiting-mark','!'); attention.title = '承認待ち'; name.append(attention);
-        }
-        const info = element('div','machine-info');
-        const workerLive = rows.some(row => row.session_key === 'worker' && row.state !== 'offline' && Date.now() - Date.parse(row.last_seen) <= 600000);
-        info.append(name,element('p','worker-state',workerLive ? '受付係：稼働中' : '受付係：停止中'));
-        card.append(info);
-        const crew = element('div','crew');
-        for (const agent of ['claude','codex']) {
-          const group = element('div','agent-group');
-          group.dataset.machine = machine.machine_id; group.dataset.agent = agent; group.dataset.label = machine.label || machine.machine_id;
-          group.setAttribute('role','button'); group.tabIndex = 0;
-          group.title = `${machine.label || machine.machine_id} の ${agent === 'claude' ? 'Clawd' : 'Codex'} に指示する`;
-          group.append(element('div','agent-name',agent === 'claude' ? 'Claude' : 'Codex'));
-          const clones = element('div','clones');
-          const selection = displaySessions(rows.filter(s => s.agent === agent));
-          const bubbles = element('div','bubbles');
-          const stack = element('div','clone-stack'); stack.style.setProperty('--count',String(selection.rows.length));
-          for (const row of selection.rows) {
-            const state = stateNames[row.state] ? row.state : 'offline';
-            if (state === 'waiting') card.classList.add('machine-waiting');
-            const key = JSON.stringify([machine.machine_id,agent,row.session_key || 'main']);
-            nextSessions.add(key);
-            const section = element('div','agent ' + state + (visibleSessions.has(key) ? '' : ' new'));
-            const task = state === 'running' ? runningTask(row,tasks,machine.machine_id,agent) : null;
-            const speech = state === 'running' ? (task ? Array.from(task.prompt || '').slice(0,20).join('') : row.detail || '作業中')
-              : row.session_key === 'worker' ? '受付係待機中'
-              : ['waiting','error'].includes(state) ? row.detail || stateNames[state]
-              : state === 'idle' ? idleLine(agent) : 'Zzz…';
-            section.title = stateNames[state] + ' · ' + speech + ' · ' + relative(row.last_seen);
-            // 吹き出しは分身ごとに縦に並べる（キャラの上の一覧）
-            const label = (state === 'running' ? workIcon(row.detail) + ' ' : state === 'waiting' ? '❗ ' : state === 'error' ? '⚠ ' : '') + shortText(speech, selection.rows.length > 1 ? 16 : 14);
-            const bubble = element('div','bubble ' + state + (state === 'idle' ? ' talk' : '')); bubble.title = speech;
-            bubble.append(element('span','agent-state',stateNames[state]),element('span','bubble-text',label));
-            bubbles.append(bubble);
-            const icon = element('div','work-icon',state === 'running' ? workIcon(row.detail) : '');
-            icon.setAttribute('aria-hidden','true'); section.append(icon,character(agent)); stack.append(section);
-          }
-          clones.append(stack);
-          if (selection.extra) bubbles.append(element('div','bubble','他 ' + selection.extra + '件'));
-          group.append(bubbles, clones); crew.append(group);
-          const recent = element('div','recent-work');
-          recent.style.setProperty('--pc',color);
-          for (const task of completedTasks(recentTasks,machine.machine_id,agent)) {
-            const chip = element('button','completed-bubble',(task.status === 'done' ? '✓ ' : '⚠ ') + Array.from(task.prompt || '').slice(0,12).join(''));
-            chip.type = 'button'; chip.dataset.continue = task.id;
-            chip.title = task.prompt + '\n終了：' + new Date(task.finished_at).toLocaleString('ja-JP');
-            recent.append(chip);
-          }
-          group.append(recent);
-        }
-        const limits = element('div','limits');
-        for (const [agent,name] of [['claude','Claude'],['codex','Codex']]) {
-          const values = latestLimits(rows.filter(row => row.agent === agent));
-          for (const [period,caption] of [['five_hour','5h'],['seven_day','週']]) {
-            const key = JSON.stringify([machine.machine_id,agent,period]);
-            const bar = limitBar(`${name} ${caption}`,values[period + '_used'],values[period + '_resets_at'],values[period + '_last_seen'],key);
-            bar.open = openedLimits.has(key); limits.append(bar);
-          }
-        }
-        card.append(crew,limits); cards.append(card);
-      }
-      visibleSessions = nextSessions;
-      if (!machines.length) cards.append(element('p','empty',dataReady ? '端末からの報告を待っています。' : '読み込み中…'));
-      $('cards').replaceChildren(cards); updateTargetLabel();
+      renderOffice();
       const timeline = document.createDocumentFragment();
       for (const event of events.slice(0, 20)) {
         const item = element('li');
@@ -519,12 +697,14 @@
           if (current !== generation || !activeUser) return;
           if (results.some(r => r.error)) throw new Error('read failed');
           const [nextMachines, nextStatuses, nextEvents, nextTasks] = results.map(r => r.data || []);
-          const recentResults = await Promise.all(nextMachines.flatMap(m => ['claude','codex'].map(agent => client.from('tasks').select('*')
-            .eq('claimed_by',m.machine_id).eq('engine',agent).in('status',['done','error']).not('session_id','is',null)
-            .gte('finished_at',new Date(Date.now() - 86400000).toISOString()).order('finished_at',{ascending:false}).order('id',{ascending:false}).limit(3))));
+          const recentResults = await Promise.all([
+            client.from('tasks').select('*').in('status',['done','error'])
+              .gte('finished_at',new Date(Date.now() - 86400000).toISOString()).order('finished_at',{ascending:false}).order('id',{ascending:false}),
+            client.from('tasks').select('*').eq('status','queued').order('created_at').order('id')
+          ]);
           if (recentResults.some(r => r.error)) throw new Error('recent read failed');
           if (current !== generation || !activeUser) return;
-          const nextRecentTasks = recentResults.flatMap(r => r.data || []);
+          const nextRecentTasks = recentResults[0].data || [], nextQueuedTasks = recentResults[1].data || [];
           const parentIds = [...new Set(nextTasks.map(t => t.parent_id).filter(Boolean))];
           const parents = parentIds.length ? await client.from('tasks').select('id,prompt').in('id',parentIds) : {data:[]};
           if (parents.error) throw new Error('parent read failed');
@@ -542,7 +722,7 @@
             nextContinuation = children.data[0];
           }
           [machines, statuses, events, tasks] = [nextMachines, nextStatuses, nextEvents, nextTasks];
-          recentTasks = nextRecentTasks; parentTasks = parents.data || [];
+          recentTasks = nextRecentTasks; queuedTasks = nextQueuedTasks; parentTasks = parents.data || [];
           if (continuation?.id === selectedId && nextContinuation !== continuation) setContinuation(nextContinuation);
           lastFetchedAt = Date.now(); fetchFailed = false; dataReady = true;
           $('fetch-status').textContent = ''; $('retry').hidden = true; updateConnection(); message(''); render();
@@ -570,13 +750,14 @@
       machines = []; statuses = []; events = []; tasks = []; dataReady = false;
       lastFetchedAt = null; fetchFailed = false; realtimeStatus = 'CONNECTING'; updateConnection();
       $('fetch-status').textContent = ''; $('retry').hidden = true;
-      recentTasks = []; parentTasks = []; setContinuation(null);
+      recentTasks = []; queuedTasks = []; parentTasks = []; setContinuation(null);
       $('cards').replaceChildren(); $('events').replaceChildren();
-      $('tasks').replaceChildren(); $('panel').hidden = !user;
+      $('tasks').replaceChildren(); setRequestOpen(false); $('request-toggle').hidden = !user;
       $('login').hidden = !!user; $('dashboard').hidden = !user;
       $('logout').hidden = !user; $('set-password').hidden = !user; $('connection').hidden = !user; if (!user) $('password-form').hidden = true;
+      $('account-menu').hidden = !user; $('account-menu').open = false;
       message(''); $('config-message').hidden = true;
-      visibleSessions = new Set();
+      visibleSessions = new Set(); openedProgress.clear(); selectTab('processing');
       if (!user) return;
       render();
       const current = generation;
@@ -622,7 +803,7 @@
       } catch { message('リンクを送信できません。少し待ってから再度お試しください。', true); }
       finally { button.disabled = false; }
     });
-    $('set-password').addEventListener('click', () => { $('password-form').hidden = false; $('new-password').focus(); });
+    $('set-password').addEventListener('click', () => { $('account-menu').open = false; $('password-form').hidden = false; $('new-password').focus(); });
     $('password-cancel').addEventListener('click', () => { $('password-form').hidden = true; });
     $('password-form').addEventListener('submit', async event => {
       event.preventDefault();
@@ -665,7 +846,6 @@
       for (const group of document.querySelectorAll('.agent-group')) {
         const picked = group.dataset.machine === target && group.dataset.agent === engine;
         group.classList.toggle('picked', picked);
-        if (picked && color) group.style.setProperty('--pick', color);
       }
     }
     function setContinuation(task) {
@@ -674,6 +854,7 @@
       $('target').disabled = $('engine').disabled = !!task;
       $('continue-label').textContent = task ? '続き：' + Array.from(task.prompt || '').slice(0,20).join('') : '';
       if (task) {
+        setRequestOpen(true);
         const target = task.claimed_by;
         if (!Array.from($('target').options).some(o => o.value === target)) $('target').append(new Option(target,target));
         $('target').value = target; $('engine').value = task.engine;
@@ -682,25 +863,33 @@
     }
     $('continue-cancel').addEventListener('click',() => setContinuation(null));
     // キャラをタップ → そのPC・そのエンジン宛てにする
-    $('cards').addEventListener('keydown', event => { if (!event.target.closest('button') && (event.key === 'Enter' || event.key === ' ') && event.target.closest('.agent-group')) { event.preventDefault(); event.target.closest('.agent-group').click(); } });
     $('cards').addEventListener('click', event => {
-      const group = event.target.closest('.agent-group');
-      if (!group) return;
+      const bubble = event.target.closest('[data-progress]');
+      if (bubble) {
+        const key = bubble.dataset.progress;
+        if (!openedProgress.delete(key)) openedProgress.add(key);
+        render();
+        Array.from($('cards').querySelectorAll('[data-progress]')).find(b => b.dataset.progress === key)?.focus({preventScroll:true});
+        return;
+      }
       const chip = event.target.closest('[data-continue]');
       if (chip) {
-        const task = recentTasks.find(t => t.id === chip.dataset.continue);
-        if (task) setContinuation(task);
+        const task = allTaskRows().find(t => t.id === chip.dataset.continue);
+        if (task?.session_id) setContinuation(task);
         $('prompt').focus({preventScroll:true});
-        $('panel').scrollIntoView({behavior:'smooth',block:'nearest'}); return;
+        return;
       }
+      const pick = event.target.closest('[data-pick]');
+      const group = pick?.closest('.agent-group');
+      if (!group) return;
       setContinuation(null);
       if (!Array.from($('target').options).some(o => o.value === group.dataset.machine)) {
         $('target').append(new Option(group.dataset.label || group.dataset.machine, group.dataset.machine));
       }
       $('target').value = group.dataset.machine; $('engine').value = group.dataset.agent;
       settingsChanged();
+      setRequestOpen(true);
       $('prompt').focus({ preventScroll:true });
-      $('panel').scrollIntoView({ behavior:'smooth', block:'nearest' });
     });
     function selectedPermissions() { return Array.from(document.querySelectorAll('.permissions input:checked')).map(el => el.value); }
     function settingsChanged() {
@@ -749,8 +938,6 @@
       } catch { if (current === generation) $('send-message').textContent = '送信できません。接続・tasks.sql の設定を確認してください。'; }
       finally { $('send').disabled = false; }
     });
-    function panelSpace() { document.querySelector('main').style.paddingBottom = '40px'; }
-    new ResizeObserver(panelSpace).observe($('panel'));
     setInterval(() => { if (activeUser) render(); },10000);
     async function init() {
       $('login').hidden = false;
